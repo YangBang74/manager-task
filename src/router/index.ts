@@ -10,6 +10,11 @@ const router = createRouter({
       component: Home,
       meta: { layout: 'default' },
     },
+    {
+      path: '/task/:id',
+      name: 'task-detail',
+      component: () => import('@/views/TaskDetail.vue'), // или свой путь
+    },
   ],
 })
 

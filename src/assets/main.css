@@ -4,3 +4,14 @@ body {
   background-color: #1f1f1f;
   color: #f1f1f1;
 }
+
+a,
+button {
+  cursor: pointer;
+}
+
+a,
+button,
+svg {
+  transition: 0.2s;
+}
