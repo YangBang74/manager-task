@@ -1,10 +1,17 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
+export interface TaskItem {
+  id: number
+  type: 'text' | 'image'
+  content: string // текст или URL картинки
+}
+
 export interface Task {
   id: number
   title: string
   done: boolean
+  items: TaskItem[] // вложенные пункты
 }
 
 export const useTaskStore = defineStore('task', () => {
@@ -15,6 +22,7 @@ export const useTaskStore = defineStore('task', () => {
       id: Date.now(),
       title,
       done: false,
+      items: [],
     }
     tasks.value.push(newTask)
     saveToLocalStorage()
@@ -33,9 +41,16 @@ export const useTaskStore = defineStore('task', () => {
     }
   }
 
-  function clearCompleted() {
-    tasks.value = tasks.value.filter((task) => !task.done)
-    saveToLocalStorage()
+  function addItemToTask(taskId: number, type: 'text' | 'image', content: string) {
+    const task = tasks.value.find((t) => t.id === taskId)
+    if (task) {
+      task.items.push({
+        id: Date.now(),
+        type,
+        content,
+      })
+      saveToLocalStorage()
+    }
   }
 
   function saveToLocalStorage() {
@@ -45,11 +60,7 @@ export const useTaskStore = defineStore('task', () => {
   function loadFromLocalStorage() {
     const saved = localStorage.getItem('tasks')
     if (saved) {
-      try {
-        tasks.value = JSON.parse(saved)
-      } catch (e) {
-        console.error('Ошибка при загрузке задач из localStorage:', e)
-      }
+      tasks.value = JSON.parse(saved)
     }
   }
 
@@ -60,6 +71,6 @@ export const useTaskStore = defineStore('task', () => {
     addTask,
     removeTask,
     toggleTask,
-    clearCompleted,
+    addItemToTask,
   }
 })
