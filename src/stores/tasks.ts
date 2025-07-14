@@ -4,14 +4,14 @@ import { ref } from 'vue'
 export interface TaskItem {
   id: number
   type: 'text' | 'image'
-  content: string // текст или URL картинки
+  content: string
 }
 
 export interface Task {
   id: number
   title: string
   done: boolean
-  items: TaskItem[] // вложенные пункты
+  items: TaskItem[]
 }
 
 export const useTaskStore = defineStore('task', () => {
@@ -53,6 +53,23 @@ export const useTaskStore = defineStore('task', () => {
     }
   }
 
+  function removeItemFromTask(taskId: number, itemId: number) {
+    const task = tasks.value.find((t) => t.id === taskId)
+    if (task) {
+      task.items = task.items.filter((item) => item.id !== itemId)
+      saveToLocalStorage()
+    }
+  }
+
+  function editItemContent(taskId: number, itemId: number, newContent: string) {
+    const task = tasks.value.find((t) => t.id === taskId)
+    const item = task?.items.find((i) => i.id === itemId)
+    if (item && item.type === 'text') {
+      item.content = newContent
+      saveToLocalStorage()
+    }
+  }
+
   function saveToLocalStorage() {
     localStorage.setItem('tasks', JSON.stringify(tasks.value))
   }
@@ -72,5 +89,7 @@ export const useTaskStore = defineStore('task', () => {
     removeTask,
     toggleTask,
     addItemToTask,
+    removeItemFromTask,
+    editItemContent,
   }
 })
