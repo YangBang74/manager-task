@@ -5,7 +5,7 @@ import { RouterView } from 'vue-router'
 
 <template>
   <div class="layout">
-    <main class="flex gap-4">
+    <main class="flex">
       <VertcialNav />
       <RouterView />
     </main>

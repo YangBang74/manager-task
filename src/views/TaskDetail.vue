@@ -1,45 +1,35 @@
 <script setup lang="ts">
 import { useTaskStore } from '@/stores/tasks'
 import type { TaskItem } from '@/stores/tasks'
-
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
+import { Paperclip } from 'lucide-vue-next'
 
 const store = useTaskStore()
 
 const taskId = ref(store.tasks[0]?.id || 0)
 const currentTask = computed(() => store.tasks.find((t) => t.id === taskId.value))
-
 const newContent = ref('')
+const editingId = ref<number | null>(null)
+const editContent = ref('')
+const messagesContainer = ref<HTMLElement | null>(null)
 
 function addTextItem() {
   if (!newContent.value.trim() || !currentTask.value) return
   store.addItemToTask(currentTask.value.id, 'text', newContent.value.trim())
   newContent.value = ''
+  scrollToBottom()
 }
 
 function addImageItem(base64: string) {
   if (!currentTask.value) return
   store.addItemToTask(currentTask.value.id, 'image', base64)
-}
-
-function onPaste(e: ClipboardEvent) {
-  const items = e.clipboardData?.items
-  if (!items) return
-
-  for (const item of items) {
-    if (item.type.indexOf('image') !== -1) {
-      const file = item.getAsFile()
-      if (file) readFileAsBase64(file)
-    }
-  }
+  scrollToBottom()
 }
 
 function readFileAsBase64(file: File) {
   const reader = new FileReader()
   reader.onload = () => {
-    if (typeof reader.result === 'string') {
-      addImageItem(reader.result)
-    }
+    if (typeof reader.result === 'string') addImageItem(reader.result)
   }
   reader.readAsDataURL(file)
 }
@@ -48,6 +38,17 @@ function onFileChange(e: Event) {
   const input = e.target as HTMLInputElement
   if (!input.files?.length) return
   Array.from(input.files).forEach((file) => readFileAsBase64(file))
+}
+
+function onPaste(e: ClipboardEvent) {
+  const items = e.clipboardData?.items
+  if (!items) return
+  for (const item of items) {
+    if (item.type.indexOf('image') !== -1) {
+      const file = item.getAsFile()
+      if (file) readFileAsBase64(file)
+    }
+  }
 }
 
 function onDrop(e: DragEvent) {
@@ -60,9 +61,7 @@ function onDragOver(e: DragEvent) {
   e.preventDefault()
 }
 
-const editingId = ref<number | null>(null)
-const editContent = ref('')
-
+// Редактирование
 function startEdit(item: TaskItem) {
   editingId.value = item.id
   editContent.value = item.content
@@ -74,31 +73,36 @@ function cancelEdit() {
 }
 
 function saveEdit(item: TaskItem) {
-  if (!editContent.value.trim()) return
-  store.editItemContent(currentTask.value!.id, item.id, editContent.value.trim())
+  if (!editContent.value.trim() || !currentTask.value) return
+  store.editItemContent(currentTask.value.id, item.id, editContent.value.trim())
   cancelEdit()
 }
+
+// Прокрутка вниз
+function scrollToBottom() {
+  nextTick(() => {
+    messagesContainer.value?.scrollTo({
+      top: messagesContainer.value.scrollHeight,
+      behavior: 'smooth',
+    })
+  })
+}
+
+onMounted(() => scrollToBottom())
 </script>
 
 <template>
-  <div v-if="store.tasks.length" class="max-w-3xl mx-auto px-4">
-    <!-- Выбор задачи -->
-    <select v-model="taskId" class="mb-4 px-2 py-1 rounded text-black w-full">
-      <option v-for="task in store.tasks" :key="task.id" :value="task.id">
-        {{ task.title }}
-      </option>
-    </select>
-
-    <!-- Заголовок задачи -->
-    <h2 class="text-xl font-bold border-b border-white/10 pb-2 mb-4">
-      {{ currentTask?.title }}
-    </h2>
-
-    <!-- Список сообщений -->
-    <div class="space-y-2">
-      <div v-for="item in currentTask?.items" :key="item.id" class="flex items-start">
-        <!-- Сообщение -->
-        <div class="max-w-[70%] bg-white/10 text-white px-3 py-2 rounded-xl relative">
+  <div class="h-screen flex flex-col w-full text-white overflow-hidden">
+    <!-- Сообщения -->
+    <main
+      ref="messagesContainer"
+      class="flex-1 overflow-y-auto p-4 space-y-3 scroll-smooth"
+      @paste="onPaste"
+      @drop="onDrop"
+      @dragover="onDragOver"
+    >
+      <div v-for="item in currentTask?.items" :key="item.id" class="flex">
+        <div class="bg-white/10 p-3 rounded-2xl max-w-[75%] relative">
           <div v-if="editingId === item.id">
             <input
               v-model="editContent"
@@ -112,22 +116,24 @@ function saveEdit(item: TaskItem) {
           </div>
 
           <template v-else>
-            <div v-if="item.type === 'text'">{{ item.content }}</div>
+            <div v-if="item.type === 'text'" class="break-words whitespace-pre-wrap">
+              {{ item.content }}
+            </div>
             <div v-else-if="item.type === 'image'">
-              <img :src="item.content" class="rounded-lg max-w-full max-h-60" />
+              <img :src="item.content" class="rounded-xl max-w-full max-h-60" />
             </div>
 
-            <div class="absolute top-1 right-1 flex gap-1">
+            <div class="absolute top-1 right-2 flex gap-1 text-xs">
               <button
                 v-if="item.type === 'text'"
                 @click="startEdit(item)"
-                class="text-xs text-yellow-400 hover:text-yellow-500"
+                class="text-yellow-400 hover:text-yellow-300"
               >
                 ✏️
               </button>
               <button
                 @click="store.removeItemFromTask(currentTask.id, item.id)"
-                class="text-xs text-red-400 hover:text-red-500"
+                class="text-red-400 hover:text-red-300"
               >
                 ✕
               </button>
@@ -135,41 +141,38 @@ function saveEdit(item: TaskItem) {
           </template>
         </div>
       </div>
-    </div>
+    </main>
 
-    <!-- Форма отправки -->
-    <div
-      class="mt-4 border border-white/20 rounded p-3 bg-white/5 flex items-end gap-2"
-      @paste="onPaste"
-      @drop="onDrop"
-      @dragover="onDragOver"
-    >
-      <!-- Поле ввода -->
-      <textarea
-        v-model="newContent"
-        placeholder="Введите сообщение"
-        class="w-full p-2 rounded bg-white/30 text-black resize-none"
-        rows="2"
-        @keyup.enter.prevent="addTextItem"
-      ></textarea>
+    <!-- Поле ввода -->
+    <footer class="border-t border-white/10 p-3 bg-gray-800/40">
+      <div class="flex items-end gap-2 w-full max-w-150 mx-auto">
+        <textarea
+          v-model="newContent"
+          placeholder="Введите сообщение"
+          class="w-full p-2 rounded-xl bg-white/20 text-white resize-none focus:outline-none focus:ring-2 focus:ring-green-500"
+          rows="2"
+          @keyup.enter.prevent="addTextItem"
+        ></textarea>
 
-      <!-- Кнопка прикрепить файл -->
-      <label class="cursor-pointer">
-        📎
-        <input type="file" accept="image/*" hidden @change="onFileChange" multiple />
-      </label>
+        <label class="cursor-pointer">
+          <Paperclip class="w-6 h-6 text-white" />
+          <input type="file" accept="image/*" hidden @change="onFileChange" multiple />
+        </label>
 
-      <!-- Кнопка отправки -->
-      <button
-        @click="addTextItem"
-        class="px-4 py-1 rounded bg-green-600 hover:bg-green-700 transition"
-      >
-        ➤
-      </button>
-    </div>
+        <button
+          @click="addTextItem"
+          class="px-4 py-2 rounded-xl bg-green-600 hover:bg-green-700 transition"
+        >
+          ➤
+        </button>
+      </div>
+    </footer>
   </div>
 </template>
 
 <style scoped>
-/* Можно добавить стили подсветки для drag & drop */
+main::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
 </style>
