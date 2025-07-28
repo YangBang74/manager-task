@@ -3,7 +3,7 @@ import { useTaskStore } from '@/stores/tasks'
 import type { TaskItem } from '@/stores/tasks'
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { Paperclip, Send, Pencil, X } from 'lucide-vue-next'
+import { Paperclip, Send, Pencil, X, Copy } from 'lucide-vue-next'
 
 const store = useTaskStore()
 const route = useRoute()
@@ -67,6 +67,21 @@ function onClickOutside(event: MouseEvent) {
   if (contextMenu.value.visible && !(event.target as HTMLElement).closest('.context-menu')) {
     hideContextMenu()
   }
+}
+
+// Копировать содержимое сообщения
+function copyItem(item: TaskItem) {
+  if (item.type === 'text') {
+    navigator.clipboard.writeText(item.content)
+      .then(() => console.log('Text copied to clipboard'))
+      .catch(err => console.error('Failed to copy text:', err))
+  } else if (item.type === 'image') {
+    // For images, we'll copy the base64 string
+    navigator.clipboard.writeText(item.content)
+      .then(() => console.log('Image data copied to clipboard'))
+      .catch(err => console.error('Failed to copy image data:', err))
+  }
+  hideContextMenu()
 }
 
 // Добавить или отредактировать текстовое сообщение
@@ -253,6 +268,12 @@ function onTouchMove(e: TouchEvent) {
   }
 }
 
+// Форматирование времени
+function formatTimestamp(timestamp: string | Date): string {
+  const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp
+  return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+}
+
 onMounted(() => {
   if (!currentTask.value) {
     console.warn('No task found for ID:', taskId.value)
@@ -267,9 +288,9 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="h-screen flex w-full flex-col text-white bg-white/4 font-sans overflow-hidden">
+  <div class="h-screen flex w-full flex-col text-white font-sans overflow-hidden">
     <!-- Заголовок задачи -->
-    <header class="p-4 border-b border-white/10 flex items-center h-16">
+    <header class="py-4 px-8 border-b border-white/10 flex items-center h-16">
       <h2 class="text-lg font-semibold truncate flex-1">
         {{ currentTask?.title || 'Задача не найдена' }}
       </h2>
@@ -278,7 +299,7 @@ onMounted(() => {
     <!-- Сообщения -->
     <main
       ref="messagesContainer"
-      class="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth"
+      class="flex-1 overflow-y-auto p-4 space-y-px scroll-smooth"
       @paste="onPaste"
       @drop="onDrop"
       @dragover="onDragOver"
@@ -292,7 +313,7 @@ onMounted(() => {
       <div
         v-for="item in currentTask?.items"
         :key="item.id"
-        class="flex justify-start items-center min-h-[48px]"
+        class="flex justify-start items-end min-h-[48px] mb-2"
         @contextmenu="showContextMenu($event, item)"
       >
         <div
@@ -308,6 +329,9 @@ onMounted(() => {
               alt="Attached image"
               @click="openImageModal(item.content)"
             />
+          </div>
+          <div class="text-xs text-white/60 mt-1">
+            {{ formatTimestamp(item.createdAt) }}
           </div>
         </div>
       </div>
@@ -325,6 +349,12 @@ onMounted(() => {
         class="flex items-center gap-2 px-4 py-2 text-white hover:bg-white/10 w-full text-left text-sm"
       >
         <Pencil class="w-4 h-4" /> Изменить
+      </button>
+      <button
+        @click="copyItem(contextMenu.item)"
+        class="flex items-center gap-2 px-4 py-2 text-white hover:bg-white/10 w-full text-left text-sm"
+      >
+        <Copy class="w-4 h-4" /> Копировать
       </button>
       <button
         @click="deleteItem(contextMenu.item)"

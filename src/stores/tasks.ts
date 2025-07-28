@@ -5,6 +5,7 @@ export interface TaskItem {
   id: number
   type: 'text' | 'image'
   content: string
+  createdAt: string
 }
 
 export interface Task {
@@ -48,6 +49,7 @@ export const useTaskStore = defineStore('task', () => {
         id: Date.now(),
         type,
         content,
+        createdAt: new Date().toISOString(),
       })
       saveToLocalStorage()
     }
