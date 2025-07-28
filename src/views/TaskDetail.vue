@@ -2,35 +2,28 @@
 import { useTaskStore } from '@/stores/tasks'
 import type { TaskItem } from '@/stores/tasks'
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { Paperclip, Send, Pencil, X, Copy } from 'lucide-vue-next'
+import { useRoute, useRouter } from 'vue-router'
+import { Paperclip, Send, Pencil, X, Copy, Move } from 'lucide-vue-next'
 
 const store = useTaskStore()
 const route = useRoute()
+const router = useRouter()
 
-// Инициализация taskId из параметров маршрута
 const taskId = ref(Number(route.params.id) || store.tasks[0]?.id || 0)
 const currentTask = computed(() => store.tasks.find((t) => t.id === taskId.value))
-const newContent = ref<string>('') // Явно указываем тип string
-const editingItem = ref<TaskItem | null>(null) // Track the item being edited
+const newContent = ref<string>('')
+const editingItem = ref<TaskItem | null>(null)
 const messagesContainer = ref<HTMLElement | null>(null)
-const contextMenu = ref<{ visible: boolean; x: number; y: number; item: TaskItem | null }>({
-  visible: false,
-  x: 0,
-  y: 0,
-  item: null,
-})
-// Modal state for image preview
+const contextMenu = ref({ visible: false, x: 0, y: 0, item: null as TaskItem | null })
 const showImageModal = ref(false)
-const selectedImage = ref<string>('')
-// Zoom and pan state
+const selectedImage = ref('')
 const scale = ref(1)
 const translateX = ref(0)
 const translateY = ref(0)
 const isDragging = ref(false)
-const dragStart = ref({ x: 0, y: 0 })
+const dragStart = ref({ x: 0, y: 0, distance: 0 })
+const isPanMode = ref(true)
 
-// Watch route.params.id to update taskId when the route changes
 watch(
   () => route.params.id,
   (newId) => {
@@ -39,65 +32,46 @@ watch(
       taskId.value = parsedId
       scrollToBottom()
     } else if (store.tasks.length > 0) {
-      // Redirect to first task if invalid ID
       router.push(`/task/${store.tasks[0].id}`)
     }
   },
 )
 
-// Показать контекстное меню при правом клике
-function showContextMenu(event: MouseEvent, item: TaskItem) {
-  event.preventDefault()
-  contextMenu.value = {
-    visible: true,
-    x: event.clientX,
-    y: event.clientY,
-    item,
-  }
+function scrollToBottom() {
+  nextTick(() => {
+    messagesContainer.value?.scrollTo({
+      top: messagesContainer.value.scrollHeight,
+      behavior: 'smooth',
+    })
+  })
 }
 
-// Скрыть контекстное меню
+function showContextMenu(event: MouseEvent, item: TaskItem) {
+  event.preventDefault()
+  contextMenu.value = { visible: true, x: event.clientX, y: event.clientY, item }
+}
+
 function hideContextMenu() {
   contextMenu.value.visible = false
   contextMenu.value.item = null
 }
 
-// Обработчик клика вне меню
 function onClickOutside(event: MouseEvent) {
   if (contextMenu.value.visible && !(event.target as HTMLElement).closest('.context-menu')) {
     hideContextMenu()
   }
 }
 
-// Копировать содержимое сообщения
 function copyItem(item: TaskItem) {
-  if (item.type === 'text') {
-    navigator.clipboard.writeText(item.content)
-      .then(() => console.log('Text copied to clipboard'))
-      .catch(err => console.error('Failed to copy text:', err))
-  } else if (item.type === 'image') {
-    // For images, we'll copy the base64 string
-    navigator.clipboard.writeText(item.content)
-      .then(() => console.log('Image data copied to clipboard'))
-      .catch(err => console.error('Failed to copy image data:', err))
-  }
+  navigator.clipboard
+    .writeText(item.content)
+    .then(() => console.log('Copied'))
+    .catch(console.error)
   hideContextMenu()
 }
 
-// Добавить или отредактировать текстовое сообщение
 function addTextItem() {
-  if (
-    !newContent.value ||
-    typeof newContent.value !== 'string' ||
-    !newContent.value.trim() ||
-    !currentTask.value
-  ) {
-    console.warn('Cannot add/edit text item: invalid content or task', {
-      newContent: newContent.value,
-      currentTask: currentTask.value,
-    })
-    return
-  }
+  if (!newContent.value.trim() || !currentTask.value) return
   if (editingItem.value) {
     store.editItemContent(currentTask.value.id, editingItem.value.id, newContent.value.trim())
     cancelEdit()
@@ -108,38 +82,23 @@ function addTextItem() {
   scrollToBottom()
 }
 
-// Добавить изображение
 function addImageItem(base64: string) {
-  if (!currentTask.value) {
-    console.warn('No current task to add image to')
-    return
-  }
+  if (!currentTask.value) return
   store.addItemToTask(currentTask.value.id, 'image', base64)
   scrollToBottom()
 }
 
-// Чтение файла как base64
 function readFileAsBase64(file: File) {
-  if (!file.type.startsWith('image/')) {
-    console.warn('Only image files are supported:', file.type)
-    return
-  }
+  if (!file.type.startsWith('image/')) return
   const reader = new FileReader()
-  reader.onload = () => {
-    if (typeof reader.result === 'string') {
-      addImageItem(reader.result)
-    } else {
-      console.warn('FileReader result is not a string')
-    }
-  }
-  reader.onerror = () => console.error('Failed to read file:', file.name)
+  reader.onload = () => typeof reader.result === 'string' && addImageItem(reader.result)
   reader.readAsDataURL(file)
 }
 
 function onFileChange(e: Event) {
   const input = e.target as HTMLInputElement
   if (!input.files?.length) return
-  Array.from(input.files).forEach((file) => readFileAsBase64(file))
+  ;[...input.files].forEach(readFileAsBase64)
 }
 
 function onPaste(e: ClipboardEvent) {
@@ -148,7 +107,7 @@ function onPaste(e: ClipboardEvent) {
   for (const item of items) {
     if (item.type.includes('image')) {
       const file = item.getAsFile()
-      if (file) readFileAsBase64(file)
+      file && readFileAsBase64(file)
     }
   }
 }
@@ -156,90 +115,69 @@ function onPaste(e: ClipboardEvent) {
 function onDrop(e: DragEvent) {
   e.preventDefault()
   if (!e.dataTransfer?.files.length) return
-  Array.from(e.dataTransfer.files).forEach((file) => readFileAsBase64(file))
+  ;[...e.dataTransfer.files].forEach(readFileAsBase64)
 }
 
 function onDragOver(e: DragEvent) {
   e.preventDefault()
 }
 
-// Начать редактирование
 function startEdit(item: TaskItem) {
   if (item.type !== 'text') return
   editingItem.value = item
   newContent.value = item.content
   hideContextMenu()
-  nextTick(() => {
-    const textarea = document.querySelector('textarea')
-    if (textarea) textarea.focus()
-  })
+  nextTick(() => document.querySelector('textarea')?.focus())
 }
 
-// Отменить редактирование
 function cancelEdit() {
   editingItem.value = null
   newContent.value = ''
 }
 
-// Удалить сообщение
 function deleteItem(item: TaskItem) {
-  if (!currentTask.value) return
-  store.removeItemFromTask(currentTask.value.id, item.id)
+  currentTask.value && store.removeItemFromTask(currentTask.value.id, item.id)
   hideContextMenu()
 }
 
-// Прокрутка вниз
-function scrollToBottom() {
-  nextTick(() => {
-    if (messagesContainer.value) {
-      messagesContainer.value.scrollTo({
-        top: messagesContainer.value.scrollHeight,
-        behavior: 'smooth',
-      })
-    }
-  })
-}
-
-// Открыть модальное окно с изображением
 function openImageModal(src: string) {
   selectedImage.value = src
   showImageModal.value = true
   resetTransform()
 }
 
-// Закрыть модальное окно
 function closeImageModal() {
   showImageModal.value = false
   selectedImage.value = ''
   resetTransform()
 }
 
-// Сбросить масштаб и позицию
 function resetTransform() {
   scale.value = 1
   translateX.value = 0
   translateY.value = 0
+  dragStart.value.distance = 0
 }
 
-// Обработчик колесика мыши для масштабирования
 function onWheel(e: WheelEvent) {
   e.preventDefault()
-  const delta = e.deltaY > 0 ? -0.1 : 0.1
-  scale.value = Math.max(0.5, Math.min(5, scale.value + delta))
+  if (e.ctrlKey) {
+    const delta = e.deltaY > 0 ? -0.1 : 0.1
+    scale.value = Math.min(5, Math.max(0.5, scale.value + delta))
+  }
 }
 
-// Обработчик начала перетаскивания
 function startDrag(e: MouseEvent | TouchEvent) {
-  if (!showImageModal.value) return
+  if (!showImageModal.value || !isPanMode.value) return
   isDragging.value = true
   const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
   const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-  dragStart.value = { x: clientX - translateX.value, y: clientY - translateY.value }
+  dragStart.value.x = clientX - translateX.value
+  dragStart.value.y = clientY - translateY.value
 }
 
-// Обработчик перетаскивания
 function onDrag(e: MouseEvent | TouchEvent) {
-  if (!isDragging.value || !showImageModal.value) return
+  if (!isDragging.value) return
   e.preventDefault()
   const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
   const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
@@ -247,46 +185,34 @@ function onDrag(e: MouseEvent | TouchEvent) {
   translateY.value = clientY - dragStart.value.y
 }
 
-// Завершение перетаскивания
 function endDrag() {
   isDragging.value = false
 }
 
-// Обработчик pinch-to-zoom
 function onTouchMove(e: TouchEvent) {
   if (e.touches.length === 2) {
     e.preventDefault()
-    const touch1 = e.touches[0]
-    const touch2 = e.touches[1]
-    const distance = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY)
-    if (!dragStart.value.distance) {
-      dragStart.value.distance = distance
-    }
-    const newScale = scale.value * (distance / dragStart.value.distance)
+    const [t1, t2] = e.touches
+    const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY)
+    if (!dragStart.value.distance) dragStart.value.distance = dist
+    const newScale = scale.value * (dist / dragStart.value.distance)
     scale.value = Math.max(0.5, Math.min(5, newScale))
-    dragStart.value.distance = distance
+    dragStart.value.distance = dist
+  } else if (e.touches.length === 1 && isPanMode.value) {
+    onDrag(e)
   }
 }
 
-// Форматирование времени
 function formatTimestamp(timestamp: string | Date): string {
-  const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp
-  return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+  return new Date(timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 }
 
 onMounted(() => {
-  if (!currentTask.value) {
-    console.warn('No task found for ID:', taskId.value)
-  }
-  if (newContent.value === undefined) {
-    console.error('newContent is undefined on mount, resetting to empty string')
-    newContent.value = ''
-  }
+  if (!currentTask.value) console.warn('No task for ID:', taskId.value)
   document.addEventListener('click', onClickOutside)
   scrollToBottom()
 })
 </script>
-
 <template>
   <div class="h-screen flex w-full flex-col text-white font-sans overflow-hidden">
     <!-- Заголовок задачи -->
@@ -381,6 +307,7 @@ onMounted(() => {
         <img
           :src="selectedImage"
           class="rounded-lg object-contain"
+          :class="{ 'cursor-move': isPanMode, 'cursor-default': !isPanMode }"
           :style="{
             transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
             transition: isDragging ? 'none' : 'transform 0.2s ease-out',
@@ -413,17 +340,24 @@ onMounted(() => {
             ></path>
           </svg>
         </button>
+        <button
+          @click="isPanMode = !isPanMode"
+          class="absolute top-2 right-22 p-2 bg-gray-900/80 rounded-full text-white hover:bg-gray-700 transition"
+          :title="isPanMode ? 'Отключить режим руки' : 'Включить режим руки'"
+        >
+          <Move class="w-6 h-6" />
+        </button>
       </div>
     </div>
 
     <!-- Поле ввода -->
-    <footer class="border-t border-white/10 p-4">
+    <footer class="border-t border-white/10 px-2 py-1">
       <div class="flex items-center gap-3 w-full max-w-4xl mx-auto h-12">
         <div class="flex items-center w-full gap-3">
           <textarea
             v-model="newContent"
             :placeholder="editingItem ? 'Редактировать сообщение' : 'Введите сообщение'"
-            class="w-full px-4 py-2 rounded-xl bg-white/10 text-white resize-none focus:outline-none focus:ring-2 focus:ring-green-500 transition text-sm"
+            class="w-full px-4 py-2 rounded-xl bg-white/10 text-white resize-none focus:outline-none transition text-sm"
             rows="1"
             @keyup.enter.prevent="addTextItem"
           ></textarea>
@@ -452,71 +386,26 @@ onMounted(() => {
     </footer>
   </div>
 </template>
+
 <style scoped>
+textarea {
+  line-height: 1.5;
+  overflow: hidden;
+  resize: none;
+  max-height: 120px;
+}
+textarea::-webkit-scrollbar {
+  display: none;
+}
+
 main::-webkit-scrollbar {
-  width: 8px;
+  width: 5px;
 }
 main::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  border-radius: 20px;
 }
 main::-webkit-scrollbar-track {
   background: transparent;
-}
-
-/* Плавные анимации для сообщений */
-main > div {
-  transition: all 0.2s ease-in-out;
-}
-
-/* Улучшение стиля textarea */
-textarea {
-  line-height: 1.5;
-}
-
-/* Стили для кнопок в футере */
-footer button,
-footer label {
-  height: 100%;
-  display: flex;
-  align-items: center;
-}
-
-/* Стили для контекстного меню */
-.context-menu {
-  min-width: 150px;
-}
-
-/* Стили для модального окна */
-.modal {
-  transition: opacity 0.3s ease-in-out;
-}
-
-/* Плавное появление изображения */
-.modal img {
-  animation: fadeIn 0.3s ease-in-out;
-}
-
-/* Убедимся, что изображение в модальном окне может быть больше контейнера */
-.modal div {
-  overflow: visible;
-}
-
-/* Отключаем выделение при перетаскивании */
-img {
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-user-drag: none;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
 }
 </style>
