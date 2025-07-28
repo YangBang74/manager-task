@@ -71,13 +71,21 @@ export const useTaskStore = defineStore('task', () => {
   }
 
   function saveToLocalStorage() {
-    localStorage.setItem('tasks', JSON.stringify(tasks.value))
+    try {
+      localStorage.setItem('tasks', JSON.stringify(tasks.value))
+    } catch (error) {
+      console.error('Failed to save tasks to localStorage:', error)
+    }
   }
 
   function loadFromLocalStorage() {
-    const saved = localStorage.getItem('tasks')
-    if (saved) {
-      tasks.value = JSON.parse(saved)
+    try {
+      const saved = localStorage.getItem('tasks')
+      if (saved) {
+        tasks.value = JSON.parse(saved)
+      }
+    } catch (error) {
+      console.error('Failed to load tasks from localStorage:', error)
     }
   }
 
