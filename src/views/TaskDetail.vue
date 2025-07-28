@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useTaskStore } from '@/stores/tasks'
 import type { TaskItem } from '@/stores/tasks'
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Paperclip, Send, Pencil, X } from 'lucide-vue-next'
 
@@ -23,6 +23,27 @@ const contextMenu = ref<{ visible: boolean; x: number; y: number; item: TaskItem
 // Modal state for image preview
 const showImageModal = ref(false)
 const selectedImage = ref<string>('')
+// Zoom and pan state
+const scale = ref(1)
+const translateX = ref(0)
+const translateY = ref(0)
+const isDragging = ref(false)
+const dragStart = ref({ x: 0, y: 0 })
+
+// Watch route.params.id to update taskId when the route changes
+watch(
+  () => route.params.id,
+  (newId) => {
+    const parsedId = Number(newId)
+    if (!isNaN(parsedId) && store.tasks.some((t) => t.id === parsedId)) {
+      taskId.value = parsedId
+      scrollToBottom()
+    } else if (store.tasks.length > 0) {
+      // Redirect to first task if invalid ID
+      router.push(`/task/${store.tasks[0].id}`)
+    }
+  },
+)
 
 // Показать контекстное меню при правом клике
 function showContextMenu(event: MouseEvent, item: TaskItem) {
@@ -63,11 +84,9 @@ function addTextItem() {
     return
   }
   if (editingItem.value) {
-    // Save edited item
     store.editItemContent(currentTask.value.id, editingItem.value.id, newContent.value.trim())
     cancelEdit()
   } else {
-    // Add new item
     store.addItemToTask(currentTask.value.id, 'text', newContent.value.trim())
   }
   newContent.value = ''
@@ -131,7 +150,7 @@ function onDragOver(e: DragEvent) {
 
 // Начать редактирование
 function startEdit(item: TaskItem) {
-  if (item.type !== 'text') return // Only text items can be edited
+  if (item.type !== 'text') return
   editingItem.value = item
   newContent.value = item.content
   hideContextMenu()
@@ -170,12 +189,68 @@ function scrollToBottom() {
 function openImageModal(src: string) {
   selectedImage.value = src
   showImageModal.value = true
+  resetTransform()
 }
 
 // Закрыть модальное окно
 function closeImageModal() {
   showImageModal.value = false
   selectedImage.value = ''
+  resetTransform()
+}
+
+// Сбросить масштаб и позицию
+function resetTransform() {
+  scale.value = 1
+  translateX.value = 0
+  translateY.value = 0
+}
+
+// Обработчик колесика мыши для масштабирования
+function onWheel(e: WheelEvent) {
+  e.preventDefault()
+  const delta = e.deltaY > 0 ? -0.1 : 0.1
+  scale.value = Math.max(0.5, Math.min(5, scale.value + delta))
+}
+
+// Обработчик начала перетаскивания
+function startDrag(e: MouseEvent | TouchEvent) {
+  if (!showImageModal.value) return
+  isDragging.value = true
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+  dragStart.value = { x: clientX - translateX.value, y: clientY - translateY.value }
+}
+
+// Обработчик перетаскивания
+function onDrag(e: MouseEvent | TouchEvent) {
+  if (!isDragging.value || !showImageModal.value) return
+  e.preventDefault()
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+  translateX.value = clientX - dragStart.value.x
+  translateY.value = clientY - dragStart.value.y
+}
+
+// Завершение перетаскивания
+function endDrag() {
+  isDragging.value = false
+}
+
+// Обработчик pinch-to-zoom
+function onTouchMove(e: TouchEvent) {
+  if (e.touches.length === 2) {
+    e.preventDefault()
+    const touch1 = e.touches[0]
+    const touch2 = e.touches[1]
+    const distance = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY)
+    if (!dragStart.value.distance) {
+      dragStart.value.distance = distance
+    }
+    const newScale = scale.value * (distance / dragStart.value.distance)
+    scale.value = Math.max(0.5, Math.min(5, newScale))
+    dragStart.value.distance = distance
+  }
 }
 
 onMounted(() => {
@@ -264,11 +339,22 @@ onMounted(() => {
       v-if="showImageModal"
       class="fixed inset-0 bg-black/80 flex items-center justify-center z-50"
       @click.self="closeImageModal"
+      @wheel="onWheel"
+      @mousedown="startDrag"
+      @mousemove="onDrag"
+      @mouseup="endDrag"
+      @touchstart="startDrag"
+      @touchmove="onTouchMove"
+      @touchend="endDrag"
     >
-      <div class="relative max-w-[90vw] max-h-[90vh] p-4">
+      <div class="relative max-w-[90vw] max-h-[90vh] p-4 overflow-hidden">
         <img
           :src="selectedImage"
-          class="max-w-full max-h-[80vh] object-contain rounded-lg"
+          class="rounded-lg object-contain"
+          :style="{
+            transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
+            transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+          }"
           alt="Full-size image"
         />
         <button
@@ -276,6 +362,26 @@ onMounted(() => {
           class="absolute top-2 right-2 p-2 bg-gray-900/80 rounded-full text-white hover:bg-gray-700 transition"
         >
           <X class="w-6 h-6" />
+        </button>
+        <button
+          @click="resetTransform"
+          class="absolute top-2 right-12 p-2 bg-gray-900/80 rounded-full text-white hover:bg-gray-700 transition"
+          title="Сбросить масштаб"
+        >
+          <svg
+            class="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            ></path>
+          </svg>
         </button>
       </div>
     </div>
@@ -349,5 +455,38 @@ footer label {
 /* Стили для контекстного меню */
 .context-menu {
   min-width: 150px;
+}
+
+/* Стили для модального окна */
+.modal {
+  transition: opacity 0.3s ease-in-out;
+}
+
+/* Плавное появление изображения */
+.modal img {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Убедимся, что изображение в модальном окне может быть больше контейнера */
+.modal div {
+  overflow: visible;
+}
+
+/* Отключаем выделение при перетаскивании */
+img {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 </style>

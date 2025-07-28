@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ArrowRight, Settings, UserRound, CheckCircle, Circle, Plus, X } from 'lucide-vue-next'
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useTaskStore } from '@/stores/tasks'
 
 const router = useRouter()
+const route = useRoute()
 const store = useTaskStore()
 
 const menuIsActive = ref(true)
@@ -93,7 +94,10 @@ function goToTask(taskId: number) {
           v-for="task in store.tasks"
           :key="task.id"
           class="flex items-center bg-white/5 hover:bg-white/10 px-2 py-1 rounded text-xs transition group"
-          :class="!menuIsActive && 'justify-center'"
+          :class="{
+            '!bg-green-600/20': Number(route.params.id) === task.id,
+            'justify-center': !menuIsActive,
+          }"
         >
           <!-- Done toggle -->
           <button
