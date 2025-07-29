@@ -1,17 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
-import LayoutDefault from '@/layouts/default.vue'
-
-const route = useRoute()
-
-const layout = computed(() => {
-  return route.meta.layout === 'default' ? LayoutDefault : LayoutDefault
-})
+import VerticalNav from '@/components/VerticalNav.vue'
 </script>
 
 <template>
-  <component :is="layout">
-    <RouterView />
-  </component>
+  <VApp>
+    <VLayout>
+      <VerticalNav />
+      <VMain>
+        <RouterView />
+      </VMain>
+    </VLayout>
+  </VApp>
 </template>

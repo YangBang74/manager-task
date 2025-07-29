@@ -1,5 +1,5 @@
 @import 'tailwindcss';
-
+/* 
 body {
   background-color: #1f1f1f;
   color: #f1f1f1;
@@ -17,19 +17,3 @@ svg {
 }
 
 /* tailwind.config.js или ваш CSS-файл */
-@layer base {
-  :root {
-    --background: 255 255 255; /* Светлый фон */
-    --foreground: 0 0 0; /* Тёмный текст */
-  }
-
-  .dark {
-    --background: 24 24 24; /* Тёмный фон */
-    --foreground: 255 255 255; /* Светлый текст */
-  }
-
-  body {
-    background-color: rgb(var(--background));
-    color: rgb(var(--foreground));
-  }
-}
