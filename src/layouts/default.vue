@@ -7,7 +7,7 @@ import { RouterView } from 'vue-router'
   <div class="layout">
     <main class="flex">
       <VertcialNav />
-      <RouterView />
+      <RouterView class="w-[80%]" />
     </main>
     <footer></footer>
   </div>

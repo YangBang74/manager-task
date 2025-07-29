@@ -214,7 +214,7 @@ onMounted(() => {
 })
 </script>
 <template>
-  <div class="h-screen flex w-full flex-col text-white font-sans overflow-hidden">
+  <div class="h-screen flex flex-col text-white font-sans overflow-hidden">
     <!-- Заголовок задачи -->
     <header class="py-4 px-8 border-b border-white/10 flex items-center h-16">
       <h2 class="text-lg font-semibold truncate flex-1">

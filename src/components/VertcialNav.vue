@@ -3,16 +3,18 @@ import { ArrowRight, Settings, UserRound, CheckCircle, Circle, Plus, X } from 'l
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useTaskStore } from '@/stores/tasks'
+import { useTheme } from '@/composables/useTheme'
+import { Monitor, Sun, Moon } from 'lucide-vue-next'
 
 const router = useRouter()
 const route = useRoute()
 const store = useTaskStore()
 
 const menuIsActive = ref(true)
-const menuWidth = computed(() => (menuIsActive.value ? 'w-60' : 'w-19'))
-
 const showInput = ref(false)
 const newTaskTitle = ref('')
+const settingsModal = ref(false)
+const { theme } = useTheme()
 
 function addTask() {
   if (!newTaskTitle.value.trim()) return
@@ -24,6 +26,7 @@ function addTask() {
 function goToTask(taskId: number) {
   router.push(`/task/${taskId}`)
 }
+const menuWidth = computed(() => (menuIsActive.value ? 'w-60' : 'w-19'))
 </script>
 
 <template>
@@ -58,7 +61,12 @@ function goToTask(taskId: number) {
           </Transition>
         </div>
         <Transition name="fade">
-          <button type="button" class="hover:bg-white/20 p-2 rounded-xl" v-if="menuIsActive">
+          <button
+            type="button"
+            class="hover:bg-white/20 p-2 rounded-xl"
+            v-if="menuIsActive"
+            @click="settingsModal = true"
+          >
             <Settings :size="20" />
           </button>
         </Transition>
@@ -133,6 +141,44 @@ function goToTask(taskId: number) {
       </div>
     </div>
   </aside>
+  <Teleport to="body">
+    <Transition name="fade">
+      <div
+        v-if="settingsModal"
+        class="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+        @click.self="settingsModal = false"
+      >
+        <div class="bg-zinc-800 text-white p-6 rounded-xl w-[300px] space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="text-lg font-semibold">Настройки</h3>
+            <button @click="settingsModal = false" class="text-white hover:text-red-400">
+              <X />
+            </button>
+          </div>
+          <div class="space-y-2">
+            <p class="text-sm text-white/70">Тема:</p>
+            <div class="flex flex-col gap-2">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="radio" value="system" v-model="theme" class="accent-white" />
+                <Monitor :size="18" />
+                <span>Системная</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="radio" value="light" v-model="theme" class="accent-white" />
+                <Sun :size="18" />
+                <span>Светлая</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="radio" value="dark" v-model="theme" class="accent-white" />
+                <Moon :size="18" />
+                <span>Тёмная</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
