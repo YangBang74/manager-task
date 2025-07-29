@@ -1,19 +1,5 @@
 @import 'tailwindcss';
-/* 
+
 body {
-  background-color: #1f1f1f;
-  color: #f1f1f1;
+  overflow: hidden;
 }
-
-a,
-button {
-  cursor: pointer;
-}
-
-a,
-button,
-svg {
-  transition: 0.2s;
-}
-
-/* tailwind.config.js или ваш CSS-файл */

@@ -53,6 +53,7 @@ function goToTask(taskId: number) {
       rounded="lg"
       title="User"
       subtitle="main@mail.ru"
+      style="min-height: auto !important"
       @click.stop
     >
       <template #prepend>

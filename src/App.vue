@@ -3,7 +3,7 @@ import VerticalNav from '@/components/VerticalNav.vue'
 </script>
 
 <template>
-  <VApp>
+  <VApp class="!overflow-hidden">
     <VLayout>
       <VerticalNav />
       <VMain>

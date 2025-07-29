@@ -3,6 +3,7 @@ import { useTaskStore } from '@/stores/tasks'
 import type { TaskItem } from '@/stores/tasks'
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { Paperclip, Send, Pencil, X, Copy, Move } from 'lucide-vue-next'
 
 const store = useTaskStore()
 const route = useRoute()
@@ -13,10 +14,7 @@ const currentTask = computed(() => store.tasks.find((t) => t.id === taskId.value
 const newContent = ref<string>('')
 const editingItem = ref<TaskItem | null>(null)
 const messagesContainer = ref<HTMLElement | null>(null)
-
-// Для контекстного меню v-menu достаточно просто boolean флага
-const contextMenu = ref({ visible: false, item: null as TaskItem | null })
-
+const contextMenu = ref({ visible: false, x: 0, y: 0, item: null as TaskItem | null })
 const showImageModal = ref(false)
 const selectedImage = ref('')
 const scale = ref(1)
@@ -48,13 +46,28 @@ function scrollToBottom() {
   })
 }
 
-function openContextMenu(item: TaskItem) {
-  contextMenu.value = { visible: true, item: item }
+function showContextMenu(event: MouseEvent, item: TaskItem) {
+  event.preventDefault()
+  contextMenu.value = { visible: true, x: event.clientX, y: event.clientY, item }
+}
+
+function hideContextMenu() {
+  contextMenu.value.visible = false
+  contextMenu.value.item = null
+}
+
+function onClickOutside(event: MouseEvent) {
+  if (contextMenu.value.visible && !(event.target as HTMLElement).closest('.context-menu')) {
+    hideContextMenu()
+  }
 }
 
 function copyItem(item: TaskItem) {
-  if (!item) return
-  navigator.clipboard.writeText(item.content)
+  navigator.clipboard
+    .writeText(item.content)
+    .then(() => console.log('Copied'))
+    .catch(console.error)
+  hideContextMenu()
 }
 
 function addTextItem() {
@@ -113,6 +126,7 @@ function startEdit(item: TaskItem) {
   if (item.type !== 'text') return
   editingItem.value = item
   newContent.value = item.content
+  hideContextMenu()
   nextTick(() => document.querySelector('textarea')?.focus())
 }
 
@@ -123,6 +137,7 @@ function cancelEdit() {
 
 function deleteItem(item: TaskItem) {
   currentTask.value && store.removeItemFromTask(currentTask.value.id, item.id)
+  hideContextMenu()
 }
 
 function openImageModal(src: string) {
@@ -134,15 +149,16 @@ function openImageModal(src: string) {
 function closeImageModal() {
   showImageModal.value = false
   selectedImage.value = ''
+  resetTransform()
 }
 
-// ... остальная логика для image modal (без изменений) ...
 function resetTransform() {
   scale.value = 1
   translateX.value = 0
   translateY.value = 0
   dragStart.value.distance = 0
 }
+
 function onWheel(e: WheelEvent) {
   e.preventDefault()
   if (e.ctrlKey) {
@@ -150,6 +166,7 @@ function onWheel(e: WheelEvent) {
     scale.value = Math.min(5, Math.max(0.5, scale.value + delta))
   }
 }
+
 function startDrag(e: MouseEvent | TouchEvent) {
   if (!showImageModal.value || !isPanMode.value) return
   isDragging.value = true
@@ -158,6 +175,7 @@ function startDrag(e: MouseEvent | TouchEvent) {
   dragStart.value.x = clientX - translateX.value
   dragStart.value.y = clientY - translateY.value
 }
+
 function onDrag(e: MouseEvent | TouchEvent) {
   if (!isDragging.value) return
   e.preventDefault()
@@ -166,9 +184,11 @@ function onDrag(e: MouseEvent | TouchEvent) {
   translateX.value = clientX - dragStart.value.x
   translateY.value = clientY - dragStart.value.y
 }
+
 function endDrag() {
   isDragging.value = false
 }
+
 function onTouchMove(e: TouchEvent) {
   if (e.touches.length === 2) {
     e.preventDefault()
@@ -182,192 +202,255 @@ function onTouchMove(e: TouchEvent) {
     onDrag(e)
   }
 }
+
 function formatTimestamp(timestamp: string | Date): string {
   return new Date(timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 }
 
 onMounted(() => {
   if (!currentTask.value) console.warn('No task for ID:', taskId.value)
+  document.addEventListener('click', onClickOutside)
   scrollToBottom()
 })
 </script>
 
 <template>
-  <div class="d-flex flex-column h-100 w-100">
-    <v-app-bar density="compact" flat>
-      <v-toolbar-title class="text-h6">
+  <div class="h-screen w-full flex flex-col overflow-hidden">
+    <!-- Заголовок задачи -->
+    <header class="py-4 px-8 border-b flex items-center" style="height: 65px">
+      <h2 class="text-lg font-semibold truncate flex-1">
         {{ currentTask?.title || 'Задача не найдена' }}
-      </v-toolbar-title>
-    </v-app-bar>
+      </h2>
+    </header>
 
+    <!-- Сообщения -->
     <main
       ref="messagesContainer"
-      class="flex-1-1 overflow-y-auto pa-4"
+      class="flex-1 overflow-y-auto p-4 space-y-px scroll-smooth"
       @paste="onPaste"
       @drop="onDrop"
       @dragover="onDragOver"
     >
-      <div v-if="!currentTask" class="text-center text-disabled py-8">
-        Выберите задачу из бокового меню
-      </div>
-      <div v-else-if="!currentTask.items.length" class="text-center text-disabled py-8">
+      <div v-if="!currentTask" class="text-center py-8">Выберите задачу из бокового меню</div>
+      <div v-else-if="!currentTask.items.length" class="text-center py-8">
         Добавьте данные задачи!
       </div>
-
       <div
         v-for="item in currentTask?.items"
         :key="item.id"
-        class="d-flex justify-start align-end my-2"
+        class="flex justify-start items-end min-h-[48px] my-2 mx-5"
+        @contextmenu="showContextMenu($event, item)"
       >
-        <v-menu activator="parent" v-model="contextMenu.visible" :close-on-content-click="true">
-          <v-list density="compact">
-            <v-list-item
-              v-if="contextMenu.item?.type === 'text'"
-              @click="startEdit(contextMenu.item!)"
-            >
-              <template #prepend><v-icon icon="mdi-pencil"></v-icon></template>
-              <v-list-item-title>Изменить</v-list-item-title>
-            </v-list-item>
-            <v-list-item @click="copyItem(contextMenu.item!)">
-              <template #prepend><v-icon icon="mdi-content-copy"></v-icon></template>
-              <v-list-item-title>Копировать</v-list-item-title>
-            </v-list-item>
-            <v-list-item @click="deleteItem(contextMenu.item!)">
-              <template #prepend><v-icon icon="mdi-delete"></v-icon></template>
-              <v-list-item-title>Удалить</v-list-item-title>
-            </v-list-item>
-          </v-list>
-        </v-menu>
-
         <div
-          class="bg-green-darken-1 pa-2 rounded-lg elevation-2"
-          style="max-width: 75%"
-          @contextmenu.prevent="openContextMenu(item)"
+          class="bg-green-600/80 py-2 px-3 rounded-lg max-w-[75%] relative shadow-md transition-all hover:bg-green-600/90"
         >
           <div
             v-if="item.type === 'text'"
-            class="text-body-2"
-            style="white-space: pre-wrap; word-break: break-word"
+            class="break-words text-white whitespace-pre-wrap text-sm"
           >
             {{ item.content }}
           </div>
           <div v-else-if="item.type === 'image'">
-            <v-img
+            <img
               :src="item.content"
-              class="rounded-lg"
-              max-height="240"
+              class="max-w-full max-h-60 object-contain cursor-pointer"
               alt="Attached image"
               @click="openImageModal(item.content)"
-              style="cursor: pointer"
             />
           </div>
-          <div class="text-caption text-medium-emphasis mt-1">
+          <div class="text-xs text-gray-200 mt-1">
             {{ formatTimestamp(item.createdAt) }}
           </div>
         </div>
       </div>
     </main>
 
-    <v-dialog
-      v-model="showImageModal"
-      fullscreen
-      :scrim="false"
-      transition="dialog-bottom-transition"
+    <!-- Контекстное меню -->
+    <div
+      v-if="contextMenu.visible && contextMenu.item"
+      class="context-menu fixed border border-white/10 bg-gray-900/50 rounded-lg shadow-lg py-2 z-50"
+      :style="{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }"
     >
-      <v-card
-        @wheel="onWheel"
-        @mousedown="startDrag"
-        @mousemove="onDrag"
-        @mouseup="endDrag"
-        @touchstart="startDrag"
-        @touchmove="onTouchMove"
-        @touchend="endDrag"
+      <button
+        v-if="contextMenu.item.type === 'text'"
+        @click="startEdit(contextMenu.item)"
+        class="flex items-center gap-2 px-4 py-2 hover:text-secondary hover:bg-white/10 w-full text-left text-sm"
       >
-        <v-toolbar dark color="primary">
-          <v-btn icon dark @click="closeImageModal"><v-icon>mdi-close</v-icon></v-btn>
-          <v-spacer></v-spacer>
-          <v-btn icon dark @click="isPanMode = !isPanMode" :color="isPanMode ? 'white' : 'grey'"
-            ><v-icon>mdi-pan</v-icon></v-btn
-          >
-          <v-btn icon dark @click="resetTransform"><v-icon>mdi-refresh</v-icon></v-btn>
-        </v-toolbar>
-        <div class="d-flex justify-center align-center h-100 w-100 overflow-hidden">
-          <v-img
-            :src="selectedImage"
-            :style="{
-              transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
-              transition: isDragging ? 'none' : 'transform 0.2s ease-out',
-              cursor: isPanMode ? 'move' : 'default',
-            }"
-            max-width="90vw"
-            max-height="90vh"
-            alt="Full-size image"
-          ></v-img>
-        </div>
-      </v-card>
-    </v-dialog>
+        <Pencil class="w-4 h-4" /> Изменить
+      </button>
+      <button
+        @click="copyItem(contextMenu.item)"
+        class="flex items-center gap-2 px-4 py-2 hover:bg-white/10 w-full text-left text-sm"
+      >
+        <Copy class="w-4 h-4" /> Копировать
+      </button>
+      <button
+        @click="deleteItem(contextMenu.item)"
+        class="flex items-center gap-2 px-4 py-2 hover:bg-white/10 w-full text-left text-sm"
+      >
+        <X class="w-4 h-4" /> Удалить
+      </button>
+    </div>
 
-    <footer class="pa-2">
-      <v-textarea
-        v-model="newContent"
-        :label="editingItem ? 'Редактировать сообщение' : 'Введите сообщение'"
-        variant="solo-filled"
-        rows="1"
-        max-rows="5"
-        auto-grow
-        hide-details
-        @keydown.enter.prevent="addTextItem"
-      >
-        <template v-slot:prepend-inner>
-          <label for="file-input" style="cursor: pointer">
-            <v-icon icon="mdi-paperclip"></v-icon>
+    <!-- Модальное окно для просмотра изображения -->
+    <div
+      v-if="showImageModal"
+      class="fixed inset-0 flex items-center justify-center z-50"
+      @click.self="closeImageModal"
+      @wheel="onWheel"
+      @mousedown="startDrag"
+      @mousemove="onDrag"
+      @mouseup="endDrag"
+      @touchstart="startDrag"
+      @touchmove="onTouchMove"
+      @touchend="endDrag"
+    >
+      <div class="relative max-h-[90vh] p-4 overflow-hidden">
+        <img
+          :src="selectedImage"
+          class="rounded-lg object-contain"
+          :class="{ 'cursor-move': isPanMode, 'cursor-default': !isPanMode }"
+          :style="{
+            transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
+            transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+          }"
+          alt="Full-size image"
+        />
+        <button
+          @click="closeImageModal"
+          class="absolute top-2 right-2 p-2 bg-gray-900/80 rounded-full hover:bg-gray-700 transition"
+          title="Закрыть"
+        >
+          <X class="w-6 h-6" />
+        </button>
+        <button
+          @click="resetTransform"
+          class="absolute top-2 right-12 p-2 bg-gray-900/80 rounded-full hover:bg-gray-700 transition"
+          title="Сбросить масштаб"
+        >
+          <svg
+            class="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            ></path>
+          </svg>
+        </button>
+        <button
+          @click="isPanMode = !isPanMode"
+          class="absolute top-2 right-22 p-2 bg-gray-900/80 rounded-full hover:bg-gray-700 transition"
+          :title="isPanMode ? 'Отключить режим руки' : 'Включить режим руки'"
+        >
+          <Move class="w-6 h-6" />
+        </button>
+      </div>
+    </div>
+
+    <!-- Поле ввода -->
+    <footer class="border-t border-white/10 px-2 py-1">
+      <div class="flex items-center gap-3 w-full max-w-4xl mx-auto h-12">
+        <div class="flex items-center w-full gap-3">
+          <textarea
+            v-model="newContent"
+            :placeholder="editingItem ? 'Редактировать сообщение' : 'Введите сообщение'"
+            class="w-full px-4 py-2 rounded-xl bg-white/10resize-none focus:outline-none transition text-sm"
+            rows="1"
+            @keyup.enter.prevent="addTextItem"
+          ></textarea>
+          <label class="cursor-pointer flex items-center">
+            <Paperclip class="w-5 h-5 transition" />
+            <input type="file" accept="image/*" hidden @change="onFileChange" multiple />
           </label>
-          <input
-            id="file-input"
-            type="file"
-            accept="image/*"
-            hidden
-            @change="onFileChange"
-            multiple
-          />
-        </template>
-
-        <template v-slot:append-inner>
-          <v-btn
+          <button
             v-if="editingItem"
-            icon="mdi-close-circle"
-            variant="text"
-            size="small"
             @click="cancelEdit"
-            class="mr-2"
-          ></v-btn>
-          <v-btn
-            icon
-            @click="addTextItem"
-            :disabled="!newContent || !newContent.trim() || !currentTask"
-            color="primary"
-            elevation="2"
+            class="p-2 rounded-xl bg-red-600 hover:bg-red-700 transition flex items-center"
+            title="Отменить редактирование"
           >
-            <v-icon :icon="editingItem ? 'mdi-pencil-circle' : 'mdi-send'"></v-icon>
-          </v-btn>
-        </template>
-      </v-textarea>
+            <X class="w-5 h-5" />
+          </button>
+          <button
+            @click="addTextItem"
+            class="p-2 rounded-xl bg-green-600 hover:bg-green-700 transition flex items-center"
+            :disabled="!newContent || !newContent.trim() || !currentTask"
+          >
+            <Send v-if="!editingItem" class="w-5 h-5" />
+            <Pencil v-else class="w-5 h-5" />
+          </button>
+        </div>
+      </div>
     </footer>
   </div>
 </template>
 
 <style scoped>
-/* Убрал большинство стилей, так как Vuetify управляет ими.
-   Можно оставить только те, что абсолютно необходимы. */
-main {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(128, 128, 128, 0.3) transparent;
+/* Стили для textarea */
+textarea {
+  line-height: 1.5;
+  overflow-y: auto;
+  resize: none;
+  max-height: 120px;
 }
+
+/* Кастомный скроллбар для textarea */
+textarea::-webkit-scrollbar {
+  width: 6px;
+}
+textarea::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 12px;
+}
+textarea::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  transition: background 0.2s ease;
+}
+textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+.dark textarea::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+}
+.dark textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Кастомный скроллбар для main */
 main::-webkit-scrollbar {
   width: 8px;
 }
+main::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 12px;
+}
 main::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.3);
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  transition: background 0.2s ease;
+}
+main::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+.dark main::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+}
+.dark main::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Скрытие скроллбара в Firefox */
+main {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+.dark main {
+  scrollbar-color: rgba(255, 255, 255, 0.4) transparent;
 }
 </style>
