@@ -46,7 +46,7 @@ function goToTask(taskId: number) {
 </script>
 
 <template>
-  <VNavigationDrawer :rail="!menuIsActive" permanent floating rail-width="60" class="border-r">
+  <VNavigationDrawer :rail="!menuIsActive" permanent floating rail-width="60" elevation="2">
     <VListItem
       class="px-2 py-1 ma-2"
       lines="two"
@@ -61,7 +61,9 @@ function goToTask(taskId: number) {
         </VAvatar>
       </template>
       <template #append>
-        <VBtn icon="mdi-cog-outline" variant="text" @click.stop="settingsModal = true" />
+        <VBtn icon size="35" variant="text" @click.stop="settingsModal = true">
+          <VIcon icon="mdi-cog-outline" size="20" />
+        </VBtn>
       </template>
     </VListItem>
 
@@ -74,87 +76,99 @@ function goToTask(taskId: number) {
         @click="showInput = !showInput"
         rounded="lg"
       />
-      <v-expand-transition>
-        <div v-if="showInput && menuIsActive" class="px-2 my-2">
-          <v-text-field
+      <VExpandTransition>
+        <div v-if="showInput && menuIsActive" class="my-2">
+          <VTextField
             v-model="newTaskTitle"
             label="Название задачи"
             variant="outlined"
             density="compact"
+            class="text-body-2"
             hide-details
             @keydown.enter="addTask"
           />
         </div>
-      </v-expand-transition>
+      </VExpandTransition>
 
-      <v-list-item
+      <VListItem
         v-for="task in store.tasks"
         :key="task.id"
         :active="Number(route.params.id) === task.id"
         @click="goToTask(task.id)"
-        :title="task.title"
-        active-color="primary"
+        :title="menuIsActive ? task.title : ''"
+        :active-color="{ primary: !task.done }"
         rounded="lg"
-        :class="{ 'line-through text-medium-emphasis': task.done }"
+        :class="[
+          task.done ? 'line-through text-medium-emphasis bg-success' : 'bg-secondary/20',
+          !menuIsActive ? 'task-icon-centered' : '',
+        ]"
       >
         <template #prepend>
-          <v-icon
+          <VIcon
+            size="20"
+            :class="menuIsActive ? '' : 'ml-1'"
             :icon="task.done ? 'mdi-check-circle' : 'mdi-circle-outline'"
             @click.stop="store.toggleTask(task.id)"
-            :color="task.done ? 'success' : ''"
           />
         </template>
         <template #append>
-          <v-btn
+          <VBtn
             size="x-small"
             icon="mdi-close"
             variant="text"
             @click.stop="store.removeTask(task.id)"
+            v-if="menuIsActive"
           />
         </template>
-      </v-list-item>
+      </VListItem>
     </VList>
 
     <template #append>
       <div class="pa-2">
-        <v-btn
+        <VBtn
           block
           variant="tonal"
           @click="menuIsActive = !menuIsActive"
+          class="ma-0"
+          :class="menuIsActive ? 'text-center ma-0' : 'text-h6'"
           :prepend-icon="menuIsActive ? 'mdi-chevron-left' : 'mdi-chevron-right'"
           :text="menuIsActive ? 'Свернуть' : ''"
         >
-        </v-btn>
+        </VBtn>
       </div>
     </template>
   </VNavigationDrawer>
 
-  <v-dialog v-model="settingsModal" max-width="360">
-    <v-card title="Настройки">
+  <VDialog v-model="settingsModal" max-width="360">
+    <VCard title="Настройки">
       <template #append>
-        <v-btn icon="mdi-close" variant="text" @click="settingsModal = false"></v-btn>
+        <VBtn icon="mdi-close" variant="text" @click="settingsModal = false"></VBtn>
       </template>
 
-      <v-card-text>
-        <v-radio-group v-model="theme" label="Оформление">
-          <v-radio value="system" label="Системная">
+      <VCardText>
+        <VRadioGroup v-model="theme" label="Оформление">
+          <VRadio value="system" label="Системная">
             <template #prepend><v-icon icon="mdi-monitor" /></template>
-          </v-radio>
-          <v-radio value="light" label="Светлая">
+          </VRadio>
+          <VRadio value="light" label="Светлая">
             <template #prepend><v-icon icon="mdi-weather-sunny" /></template>
-          </v-radio>
-          <v-radio value="dark" label="Тёмная">
+          </VRadio>
+          <VRadio value="dark" label="Тёмная">
             <template #prepend><v-icon icon="mdi-weather-night" /></template>
-          </v-radio>
-        </v-radio-group>
-      </v-card-text>
-    </v-card>
-  </v-dialog>
+          </VRadio>
+        </VRadioGroup>
+      </VCardText>
+    </VCard>
+  </VDialog>
 </template>
 
 <style scoped>
 /* Этот стиль все еще нужен для зачеркивания выполненных задач */
 .text-decoration-line-through {
   text-decoration: line-through;
+}
+
+::v-deep(.v-btn__prepend) {
+  margin-inline: 0 !important;
 }
 </style>
