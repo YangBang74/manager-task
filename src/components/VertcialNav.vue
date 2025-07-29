@@ -158,18 +158,45 @@ const menuWidth = computed(() => (menuIsActive.value ? 'w-60' : 'w-19'))
           <div class="space-y-2">
             <p class="text-sm text-white/70">Тема:</p>
             <div class="flex flex-col gap-2">
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input type="radio" value="system" v-model="theme" class="accent-white" />
+              <label
+                class="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-white/10"
+                :class="{ 'bg-white/20': theme === 'system' }"
+              >
+                <input
+                  type="radio"
+                  value="system"
+                  v-model="theme"
+                  class="accent-white"
+                  aria-label="Системная тема"
+                />
                 <Monitor :size="18" />
                 <span>Системная</span>
               </label>
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input type="radio" value="light" v-model="theme" class="accent-white" />
+              <label
+                class="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-white/10"
+                :class="{ 'bg-white/20': theme === 'light' }"
+              >
+                <input
+                  type="radio"
+                  value="light"
+                  v-model="theme"
+                  class="accent-white"
+                  aria-label="Светлая тема"
+                />
                 <Sun :size="18" />
                 <span>Светлая</span>
               </label>
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input type="radio" value="dark" v-model="theme" class="accent-white" />
+              <label
+                class="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-white/10"
+                :class="{ 'bg-white/20': theme === 'dark' }"
+              >
+                <input
+                  type="radio"
+                  value="dark"
+                  v-model="theme"
+                  class="accent-white"
+                  aria-label="Тёмная тема"
+                />
                 <Moon :size="18" />
                 <span>Тёмная</span>
               </label>

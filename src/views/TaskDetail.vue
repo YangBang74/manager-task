@@ -214,7 +214,7 @@ onMounted(() => {
 })
 </script>
 <template>
-  <div class="h-screen flex flex-col text-white font-sans overflow-hidden">
+  <div class="h-screen w-full flex flex-col text-white font-sans overflow-hidden">
     <!-- Заголовок задачи -->
     <header class="py-4 px-8 border-b border-white/10 flex items-center h-16">
       <h2 class="text-lg font-semibold truncate flex-1">
@@ -388,24 +388,66 @@ onMounted(() => {
 </template>
 
 <style scoped>
+/* Стили для textarea */
 textarea {
   line-height: 1.5;
-  overflow: hidden;
+  overflow-y: auto;
   resize: none;
   max-height: 120px;
 }
+
+/* Кастомный скроллбар для textarea */
 textarea::-webkit-scrollbar {
-  display: none;
+  width: 6px;
+}
+textarea::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 12px;
+}
+textarea::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2); /* Светлый ползунок для светлой темы */
+  border-radius: 12px;
+  transition: background 0.2s ease;
+}
+textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+.dark textarea::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3); /* Ползунок для тёмной темы */
+}
+.dark textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
 }
 
+/* Кастомный скроллбар для main */
 main::-webkit-scrollbar {
-  width: 5px;
-}
-main::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 20px;
+  width: 8px;
 }
 main::-webkit-scrollbar-track {
   background: transparent;
+  border-radius: 12px;
+}
+main::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2); /* Светлый ползунок для светлой темы */
+  border-radius: 12px;
+  transition: background 0.2s ease;
+}
+main::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+.dark main::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3); /* Ползунок для тёмной темы */
+}
+.dark main::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Скрытие скроллбара в Firefox (если нужно) */
+main {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+.dark main {
+  scrollbar-color: rgba(255, 255, 255, 0.4) transparent;
 }
 </style>
