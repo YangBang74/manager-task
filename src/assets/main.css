@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
-body {
+html,
+body,
+#app {
   overflow: hidden;
 }

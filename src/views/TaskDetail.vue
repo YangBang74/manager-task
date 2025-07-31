@@ -1,3 +1,4 @@
+Конечно, вот полный код компонента с учётом всех внесённых изменений. ```vue
 <script setup lang="ts">
 import { useTaskStore } from '@/stores/tasks'
 import type { TaskItem } from '@/stores/tasks'
@@ -215,15 +216,13 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="h-screen w-full flex flex-col overflow-hidden">
-    <!-- Заголовок задачи -->
-    <header class="py-4 px-8 border-b flex items-center" style="height: 65px">
-      <h2 class="text-lg font-semibold truncate flex-1">
+  <div class="w-full flex flex-col overflow-hidden h-full" style="max-height: 82vh">
+    <VAppBar elevation="0" height="64" class="border-b">
+      <VToolbarTitle class="text-truncate">
         {{ currentTask?.title || 'Задача не найдена' }}
-      </h2>
-    </header>
+      </VToolbarTitle>
+    </VAppBar>
 
-    <!-- Сообщения -->
     <main
       ref="messagesContainer"
       class="flex-1 overflow-y-auto p-4 space-y-px scroll-smooth"
@@ -265,7 +264,6 @@ onMounted(() => {
       </div>
     </main>
 
-    <!-- Контекстное меню -->
     <div
       v-if="contextMenu.visible && contextMenu.item"
       class="context-menu fixed border border-white/10 bg-gray-900/50 rounded-lg shadow-lg py-2 z-50"
@@ -292,10 +290,9 @@ onMounted(() => {
       </button>
     </div>
 
-    <!-- Модальное окно для просмотра изображения -->
     <div
       v-if="showImageModal"
-      class="fixed inset-0 flex items-center justify-center z-50"
+      class="fixed inset-0 flex items-center justify-center z-50 bg-black/70"
       @click.self="closeImageModal"
       @wheel="onWheel"
       @mousedown="startDrag"
@@ -353,40 +350,47 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Поле ввода -->
-    <footer class="border-t border-white/10 px-2 py-1">
-      <div class="flex items-center gap-3 w-full max-w-4xl mx-auto h-12">
-        <div class="flex items-center w-full gap-3">
-          <textarea
-            v-model="newContent"
-            :placeholder="editingItem ? 'Редактировать сообщение' : 'Введите сообщение'"
-            class="w-full px-4 py-2 rounded-xl bg-white/10resize-none focus:outline-none transition text-sm"
-            rows="1"
-            @keyup.enter.prevent="addTextItem"
-          ></textarea>
-          <label class="cursor-pointer flex items-center">
-            <Paperclip class="w-5 h-5 transition" />
-            <input type="file" accept="image/*" hidden @change="onFileChange" multiple />
-          </label>
-          <button
-            v-if="editingItem"
-            @click="cancelEdit"
-            class="p-2 rounded-xl bg-red-600 hover:bg-red-700 transition flex items-center"
-            title="Отменить редактирование"
-          >
-            <X class="w-5 h-5" />
-          </button>
-          <button
-            @click="addTextItem"
-            class="p-2 rounded-xl bg-green-600 hover:bg-green-700 transition flex items-center"
-            :disabled="!newContent || !newContent.trim() || !currentTask"
-          >
-            <Send v-if="!editingItem" class="w-5 h-5" />
-            <Pencil v-else class="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-    </footer>
+    <VFooter class="pa-2 border-t" app>
+      <VContainer class="d-flex align-center pa-0 gap-3" max-width="800">
+        <VTextarea
+          v-model="newContent"
+          :placeholder="editingItem ? 'Редактировать сообщение' : 'Введите сообщение'"
+          auto-grow
+          rows="1"
+          class="flex-grow-1 rounded-xl bg-opacity-10"
+          hide-details
+          variant="outlined"
+          color="secondary"
+          density="compact"
+          @keydown.enter.prevent="addTextItem"
+        />
+
+        <VBtn icon @click="$refs.fileInput.click()">
+          <VIcon><Paperclip /></VIcon>
+          <input
+            ref="fileInput"
+            type="file"
+            accept="image/*"
+            hidden
+            multiple
+            @change="onFileChange"
+          />
+        </VBtn>
+
+        <VBtn icon v-if="editingItem" color="red" @click="cancelEdit">
+          <VIcon><X /></VIcon>
+        </VBtn>
+
+        <VBtn
+          icon
+          color="green"
+          @click="addTextItem"
+          :disabled="!newContent.trim() || !currentTask"
+        >
+          <VIcon>{{ editingItem ? 'mdi-check' : 'mdi-send' }}</VIcon>
+        </VBtn>
+      </VContainer>
+    </VFooter>
   </div>
 </template>
 
@@ -422,35 +426,43 @@ textarea::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.5);
 }
 
-/* Кастомный скроллбар для main */
+/* === UPDATED SCROLLBAR STYLES FOR MAIN === */
+/* For Webkit browsers (Chrome, Safari, Edge) */
 main::-webkit-scrollbar {
   width: 8px;
 }
+
 main::-webkit-scrollbar-track {
   background: transparent;
-  border-radius: 12px;
 }
+
+/* Light Theme Scrollbar Thumb */
 main::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.3); /* Darker thumb for light backgrounds */
   border-radius: 12px;
-  transition: background 0.2s ease;
 }
 main::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(0, 0, 0, 0.5);
 }
+
+/* Dark Theme Scrollbar Thumb */
 .dark main::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.3); /* Lighter thumb for dark backgrounds */
 }
 .dark main::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.5);
 }
 
-/* Скрытие скроллбара в Firefox */
+/* For Firefox */
+/* Light Theme */
 main {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+  scrollbar-color: rgba(0, 0, 0, 0.3) transparent; /* thumb track */
 }
+
+/* Dark Theme */
 .dark main {
-  scrollbar-color: rgba(255, 255, 255, 0.4) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent; /* thumb track */
 }
 </style>
+```
