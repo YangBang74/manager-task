@@ -46,9 +46,16 @@ function goToTask(taskId: number) {
 </script>
 
 <template>
-  <VNavigationDrawer :rail="!menuIsActive" permanent floating rail-width="60" elevation="2">
+  <VNavigationDrawer
+    :rail="!menuIsActive"
+    class="flex-no-wrap"
+    permanent
+    floating
+    rail-width="60"
+    elevation="2"
+  >
     <VListItem
-      class="px-2 py-1 ma-2"
+      class="px-2 py-1 ma-2 text-nowrap"
       lines="two"
       rounded="lg"
       title="User"

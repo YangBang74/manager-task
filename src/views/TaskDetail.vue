@@ -366,7 +366,7 @@ onMounted(() => {
         />
 
         <VBtn icon @click="$refs.fileInput.click()">
-          <VIcon><Paperclip /></VIcon>
+          <VIcon size="20"><Paperclip /></VIcon>
           <input
             ref="fileInput"
             type="file"
@@ -378,16 +378,11 @@ onMounted(() => {
         </VBtn>
 
         <VBtn icon v-if="editingItem" color="red" @click="cancelEdit">
-          <VIcon><X /></VIcon>
+          <VIcon size="20"><X /></VIcon>
         </VBtn>
 
-        <VBtn
-          icon
-          color="green"
-          @click="addTextItem"
-          :disabled="!newContent.trim() || !currentTask"
-        >
-          <VIcon>{{ editingItem ? 'mdi-check' : 'mdi-send' }}</VIcon>
+        <VBtn icon color="info" @click="addTextItem" :disabled="!newContent.trim() || !currentTask">
+          <VIcon size="20">{{ editingItem ? 'mdi-check' : 'mdi-send' }}</VIcon>
         </VBtn>
       </VContainer>
     </VFooter>
