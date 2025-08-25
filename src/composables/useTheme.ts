@@ -1,32 +1,38 @@
-import { ref, watchEffect } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useTheme } from 'vuetify'
 
 export type Theme = 'light' | 'dark' | 'system'
 
-const theme = ref<Theme>((localStorage.getItem('theme') as Theme) || 'system')
+const vuetifyTheme = useTheme()
+const preference = ref<Theme>((localStorage.getItem('theme') as Theme) || 'system')
 
-function applyTheme(value: Theme) {
-  if (value === 'system') {
+const theme = computed<'light' | 'dark' | 'system'>({
+  get: () => preference.value,
+  set: (val) => {
+    preference.value = val
+    localStorage.setItem('theme', val)
+    applyTheme()
+  },
+})
+
+function applyTheme() {
+  if (preference.value === 'system') {
     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    document.documentElement.classList.toggle('dark', isDark)
+    vuetifyTheme.global.name.value = isDark ? 'dark' : 'light'
   } else {
-    document.documentElement.classList.toggle('dark', value === 'dark')
+    vuetifyTheme.global.name.value = preference.value
   }
-  localStorage.setItem('theme', value)
 }
 
-// Реакция на изменение системной темы
-const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-mediaQuery.addEventListener('change', (e) => {
-  if (theme.value === 'system') {
-    document.documentElement.classList.toggle('dark', e.matches)
+// слушаем системную тему
+const mq = window.matchMedia('(prefers-color-scheme: dark)')
+mq.addEventListener('change', () => {
+  if (preference.value === 'system') {
+    applyTheme()
   }
 })
 
-// Применяем тему при загрузке
-watchEffect(() => {
-  applyTheme(theme.value)
+// при загрузке применяем тему
+onMounted(() => {
+  applyTheme()
 })
-
-export function useTheme() {
-  return { theme, applyTheme }
-}

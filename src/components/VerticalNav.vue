@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useTaskStore } from '@/stores/tasks'
 import { useTheme } from 'vuetify'
@@ -9,29 +9,43 @@ const route = useRoute()
 const store = useTaskStore()
 const vuetifyTheme = useTheme()
 
+export type Theme = 'light' | 'dark' | 'system'
+
+const preference = ref<Theme>((localStorage.getItem('theme') as Theme) || 'system')
+
+const theme = computed<'light' | 'dark' | 'system'>({
+  get: () => preference.value,
+  set: (val) => {
+    preference.value = val
+    localStorage.setItem('theme', val)
+    applyTheme()
+  },
+})
+
+function applyTheme() {
+  if (preference.value === 'system') {
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    vuetifyTheme.global.name.value = isDark ? 'dark' : 'light'
+  } else {
+    vuetifyTheme.global.name.value = preference.value
+  }
+}
+
+const mq = window.matchMedia('(prefers-color-scheme: dark)')
+mq.addEventListener('change', () => {
+  if (preference.value === 'system') {
+    applyTheme()
+  }
+})
+
+onMounted(() => {
+  applyTheme()
+})
+
 const menuIsActive = ref(true)
 const showInput = ref(false)
 const newTaskTitle = ref('')
 const settingsModal = ref(false)
-
-const theme = computed({
-  get: () => {
-    // Эта логика определяет, какое радио выбрать в UI
-    const name = vuetifyTheme.global.name.value
-    const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-    if ((name === 'dark' && isSystemDark) || (name === 'light' && !isSystemDark)) {
-      return 'system'
-    }
-    return name
-  },
-  set: (value: 'light' | 'dark' | 'system') => {
-    let newTheme = value
-    if (value === 'system') {
-      newTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-    }
-    vuetifyTheme.global.name.value = newTheme
-  },
-})
 
 function addTask() {
   if (!newTaskTitle.value.trim()) return
