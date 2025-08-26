@@ -3,12 +3,16 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useTaskStore } from '@/stores/tasks'
 import { useTheme } from 'vuetify'
+import { Monitor, Sun, Moon } from 'lucide-vue-next'
 
 const router = useRouter()
 const route = useRoute()
 const store = useTaskStore()
 const vuetifyTheme = useTheme()
 
+// ——————————————————————————
+// Тема
+// ——————————————————————————
 export type Theme = 'light' | 'dark' | 'system'
 
 const preference = ref<Theme>((localStorage.getItem('theme') as Theme) || 'system')
@@ -31,6 +35,7 @@ function applyTheme() {
   }
 }
 
+// слушаем системную тему, если выбрано system
 const mq = window.matchMedia('(prefers-color-scheme: dark)')
 mq.addEventListener('change', () => {
   if (preference.value === 'system') {
@@ -38,10 +43,14 @@ mq.addEventListener('change', () => {
   }
 })
 
+// применяем тему сразу при загрузке
 onMounted(() => {
   applyTheme()
 })
 
+// ——————————————————————————
+// Меню и задачи
+// ——————————————————————————
 const menuIsActive = ref(true)
 const showInput = ref(false)
 const newTaskTitle = ref('')
@@ -60,6 +69,7 @@ function goToTask(taskId: number) {
 </script>
 
 <template>
+  <!-- Боковое меню -->
   <VNavigationDrawer
     :rail="!menuIsActive"
     class="flex-no-wrap"
@@ -161,36 +171,43 @@ function goToTask(taskId: number) {
     </template>
   </VNavigationDrawer>
 
+  <!-- Модалка настроек темы -->
   <VDialog v-model="settingsModal" max-width="360">
     <VCard title="Настройки">
       <template #append>
         <VBtn icon="mdi-close" variant="text" @click="settingsModal = false"></VBtn>
       </template>
 
-      <VCardText>
-        <VRadioGroup v-model="theme" label="Оформление">
-          <VRadio value="system" label="Системная">
-            <template #prepend><v-icon icon="mdi-monitor" /></template>
-          </VRadio>
-          <VRadio value="light" label="Светлая">
-            <template #prepend><v-icon icon="mdi-weather-sunny" /></template>
-          </VRadio>
-          <VRadio value="dark" label="Тёмная">
-            <template #prepend><v-icon icon="mdi-weather-night" /></template>
-          </VRadio>
-        </VRadioGroup>
+      <VCardText class="d-flex justify-around">
+        <VBtn @click="theme = 'system'" class="d-flex flex-col align-center pa-4 rounded-lg">
+          <Monitor size="24" />
+          <span class="mt-2">Системная</span>
+        </VBtn>
+
+        <VBtn @click="theme = 'light'" class="d-flex flex-col align-center pa-4 rounded-lg">
+          <Sun size="24" />
+          <span class="mt-2">Светлая</span>
+        </VBtn>
+
+        <VBtn @click="theme = 'dark'" class="d-flex flex-col align-center pa-4 rounded-lg">
+          <Moon size="24" />
+          <span class="mt-2">Тёмная</span>
+        </VBtn>
       </VCardText>
     </VCard>
   </VDialog>
 </template>
 
 <style scoped>
-/* Этот стиль все еще нужен для зачеркивания выполненных задач */
 .text-decoration-line-through {
   text-decoration: line-through;
 }
 
-::v-deep(.v-btn__prepend) {
-  margin-inline: 0 !important;
+/* Дополнительно: для центрирования текста под иконкой */
+.pa-4 {
+  padding: 1rem !important;
+}
+.mt-2 {
+  margin-top: 0.5rem !important;
 }
 </style>
