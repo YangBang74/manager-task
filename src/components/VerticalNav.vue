@@ -178,21 +178,36 @@ function goToTask(taskId: number) {
         <VBtn icon="mdi-close" variant="text" @click="settingsModal = false"></VBtn>
       </template>
 
-      <VCardText class="d-flex justify-around">
-        <VBtn @click="theme = 'system'" class="d-flex flex-col align-center pa-4 rounded-lg">
-          <Monitor size="24" />
-          <span class="mt-2">Системная</span>
-        </VBtn>
+      <VCardText class="d-flex justify-between gap-4">
+        <VCard
+          :color="theme === 'system' ? 'primary' : ''"
+          width="33.3%"
+          @click="theme = 'system'"
+          class="d-flex flex-col align-center pa-2 rounded-lg"
+        >
+          <Monitor width="24" />
+          <span class="text-sm">Системная</span>
+        </VCard>
 
-        <VBtn @click="theme = 'light'" class="d-flex flex-col align-center pa-4 rounded-lg">
-          <Sun size="24" />
-          <span class="mt-2">Светлая</span>
-        </VBtn>
+        <VCard
+          :color="theme === 'light' ? 'primary' : ''"
+          width="33.3%"
+          @click="theme = 'light'"
+          class="d-flex flex-col align-center pa-2 rounded-lg"
+        >
+          <Sun width="24" />
+          <span class="text-sm">Светлая</span>
+        </VCard>
 
-        <VBtn @click="theme = 'dark'" class="d-flex flex-col align-center pa-4 rounded-lg">
-          <Moon size="24" />
-          <span class="mt-2">Тёмная</span>
-        </VBtn>
+        <VCard
+          :color="theme === 'dark' ? 'primary' : ''"
+          width="33.3%"
+          @click="theme = 'dark'"
+          class="d-flex flex-col align-center pa-2 rounded-lg"
+        >
+          <Moon width="24" />
+          <span class="text-sm">Тёмная</span>
+        </VCard>
       </VCardText>
     </VCard>
   </VDialog>

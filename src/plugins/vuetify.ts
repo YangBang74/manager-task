@@ -11,7 +11,7 @@ export const vuetify = createVuetify({
   directives,
 
   theme: {
-    defaultTheme: 'light', // или 'dark', если хочешь по умолчанию тёмную
+    defaultTheme: 'light',
     themes: {
       light: {
         dark: false,
@@ -32,7 +32,7 @@ export const vuetify = createVuetify({
         colors: {
           background: '#121212',
           surface: '#1E1E1E',
-          primary: '#90CAF9',
+          primary: '#1976D2',
           secondary: '#424242',
           accent: '#FF4081',
           error: '#EF5350',
