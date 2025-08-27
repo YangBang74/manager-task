@@ -128,7 +128,7 @@ function goToTask(taskId: number) {
         :active="Number(route.params.id) === task.id"
         @click="goToTask(task.id)"
         :title="menuIsActive ? task.title : ''"
-        :active-color="{ primary: !task.done }"
+        :color="!task.done ? 'success' : undefined"
         rounded="lg"
         :class="[
           task.done ? 'line-through text-medium-emphasis bg-success' : 'bg-secondary/20',

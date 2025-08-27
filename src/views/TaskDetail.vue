@@ -1,4 +1,3 @@
-Конечно, вот полный код компонента с учётом всех внесённых изменений. ```vue
 <script setup lang="ts">
 import { useTaskStore } from '@/stores/tasks'
 import type { TaskItem } from '@/stores/tasks'
@@ -15,6 +14,8 @@ const currentTask = computed(() => store.tasks.find((t) => t.id === taskId.value
 const newContent = ref<string>('')
 const editingItem = ref<TaskItem | null>(null)
 const messagesContainer = ref<HTMLElement | null>(null)
+const fileInput = ref<HTMLInputElement | null>(null)
+
 const contextMenu = ref({ visible: false, x: 0, y: 0, item: null as TaskItem | null })
 const showImageModal = ref(false)
 const selectedImage = ref('')
@@ -208,6 +209,10 @@ function formatTimestamp(timestamp: string | Date): string {
   return new Date(timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 }
 
+function triggerFileInput() {
+  fileInput.value?.click()
+}
+
 onMounted(() => {
   if (!currentTask.value) console.warn('No task for ID:', taskId.value)
   document.addEventListener('click', onClickOutside)
@@ -365,7 +370,7 @@ onMounted(() => {
           @keydown.enter.prevent="addTextItem"
         />
 
-        <VBtn icon @click="$refs.fileInput.click()">
+        <VBtn icon @click="triggerFileInput">
           <VIcon size="20"><Paperclip /></VIcon>
           <input
             ref="fileInput"
@@ -422,42 +427,32 @@ textarea::-webkit-scrollbar-thumb:hover {
 }
 
 /* === UPDATED SCROLLBAR STYLES FOR MAIN === */
-/* For Webkit browsers (Chrome, Safari, Edge) */
 main::-webkit-scrollbar {
   width: 8px;
 }
-
 main::-webkit-scrollbar-track {
   background: transparent;
 }
-
-/* Light Theme Scrollbar Thumb */
 main::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.3); /* Darker thumb for light backgrounds */
+  background: rgba(0, 0, 0, 0.3);
   border-radius: 12px;
 }
 main::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.5);
 }
-
-/* Dark Theme Scrollbar Thumb */
 .dark main::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3); /* Lighter thumb for dark backgrounds */
+  background: rgba(255, 255, 255, 0.3);
 }
 .dark main::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.5);
 }
 
-/* For Firefox */
-/* Light Theme */
+/* Firefox */
 main {
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.3) transparent; /* thumb track */
+  scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
 }
-
-/* Dark Theme */
 .dark main {
-  scrollbar-color: rgba(255, 255, 255, 0.3) transparent; /* thumb track */
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
 }
 </style>
-```
