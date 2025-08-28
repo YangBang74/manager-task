@@ -2,13 +2,14 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useTaskStore } from '@/stores/tasks'
-import { useTheme } from 'vuetify'
+import { useTheme, useDisplay } from 'vuetify'
 import { Monitor, Sun, Moon } from 'lucide-vue-next'
 
 const router = useRouter()
 const route = useRoute()
 const store = useTaskStore()
 const vuetifyTheme = useTheme()
+const display = useDisplay()
 
 // ——————————————————————————
 // Тема
@@ -63,7 +64,7 @@ function addTask() {
 
 function goToTask(taskId: number) {
   router.push(`/task/${taskId}`)
-  if ($vuetify.display.mdAndDown) {
+  if (display.mdAndDown.value) {
     menuIsActive.value = false // Закрываем меню после выбора задачи на мобильных
   }
 }
