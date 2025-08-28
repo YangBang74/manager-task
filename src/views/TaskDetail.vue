@@ -222,7 +222,13 @@ onMounted(() => {
 
 <template>
   <div class="w-full flex flex-col overflow-hidden h-full" style="max-height: 82vh">
-    <VAppBar elevation="0" height="64" class="border-b">
+    <VAppBar
+      elevation="0"
+      height="64"
+      class="border-b"
+      :class="$vuetify.display.mdAndDown ? 'pl-10' : 'px-4'"
+      app
+    >
       <VToolbarTitle class="text-truncate">
         {{ currentTask?.title || 'Задача не найдена' }}
       </VToolbarTitle>

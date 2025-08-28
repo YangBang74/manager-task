@@ -52,4 +52,15 @@ export const vuetify = createVuetify({
     },
     sets: { mdi },
   },
+  display: {
+    mobileBreakpoint: 'sm', // Устанавливает точку, где считается мобильное устройство
+    thresholds: {
+      xs: 0, // <600px
+      sm: 600, // ≥600px
+      md: 960, // ≥960px
+      lg: 1280, // ≥1280px
+      xl: 1920, // ≥1920px
+      xxl: 2560, // ≥2560px
+    },
+  },
 })
