@@ -20,9 +20,9 @@ export default defineConfig({
         'apple-touch-icon.png'
       ],
       manifest: {
-        name: 'Моё PWA-приложение',
-        short_name: 'MyApp',
-        description: 'Vue + Vuetify PWA приложение',
+        name: 'ManagerTask',
+        short_name: 'ManagerTask',
+        description: 'Менеджер задачи для удобной работы',
         theme_color: '#1976d2', // основной цвет (Vuetify primary)
         background_color: '#ffffff',
         display: 'standalone',
