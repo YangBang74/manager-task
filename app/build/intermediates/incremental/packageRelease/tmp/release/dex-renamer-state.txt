@@ -1,0 +1,4 @@
+#Fri Aug 29 16:31:37 UZT 2025
+base.0=C\:\\Users\\PIXEL\\Desktop\\projects\\manager-task\\app\\build\\intermediates\\dex\\release\\minifyReleaseWithR8\\classes.dex
+renamed.0=classes.dex
+path.0=classes.dex
