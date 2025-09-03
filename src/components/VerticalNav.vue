@@ -15,14 +15,6 @@ const vuetifyTheme = useTheme()
 // Темы
 export type Theme = 'light' | 'dark' | 'system'
 const preference = ref<Theme>((localStorage.getItem('theme') as Theme) || 'system')
-const theme = computed<'light' | 'dark' | 'system'>({
-  get: () => preference.value,
-  set: (val) => {
-    preference.value = val
-    localStorage.setItem('theme', val)
-    applyTheme()
-  },
-})
 function applyTheme() {
   if (preference.value === 'system') {
     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -39,7 +31,6 @@ onMounted(() => applyTheme())
 
 // Меню
 const menuIsActive = ref(false)
-const settingsModal = ref(false)
 
 function toggleMenu() {
   menuIsActive.value = !menuIsActive.value
@@ -71,9 +62,6 @@ function toggleMenu() {
   <VNavigationDrawer v-else expand-on-hover permanent rail :width="280" :rail-width="60">
     <MenuContent :menu-is-active="true" />
   </VNavigationDrawer>
-
-  <!-- Модалка настроек темы -->
-  <ThemeSettingsDialog v-model="settingsModal" :current-theme="theme" @set-theme="theme = $event" />
 </template>
 
 <style scoped>

@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useTaskStore } from '@/stores/tasks'
 import { useRouter } from 'vue-router'
 import type { Project } from '@/types/tasks'
+import ThemeSettingsDialog from './ThemeSettingsDialog.vue'
 
 const props = defineProps<{ menuIsActive: boolean }>()
 const store = useTaskStore()
@@ -11,6 +12,7 @@ const showInput = ref(false)
 const newTaskTitle = ref('')
 const currentProject = ref<null | Project>(null)
 const addMode = ref<'task' | 'project'>('task')
+const settingsModal = ref<boolean>(false)
 
 function startAdd(mode: 'task' | 'project') {
   addMode.value = mode
@@ -73,7 +75,7 @@ function removeItem(id: number) {
       </VAvatar>
     </template>
     <template #append>
-      <VBtn icon size="35" variant="text">
+      <VBtn icon size="35" variant="text" @click="settingsModal = true">
         <VIcon icon="mdi-cog-outline" size="20" />
       </VBtn>
     </template>
@@ -161,7 +163,12 @@ function removeItem(id: number) {
         v-for="item in store.items"
         :key="item.id"
         rounded="lg"
-        :class="!props.menuIsActive ? 'justify-center' : ''"
+        :class="[
+          item.type === 'task' && item.done
+            ? 'line-through text-medium-emphasis bg-success'
+            : 'bg-secondary/20',
+          !props.menuIsActive ? 'justify-center' : '',
+        ]"
         @click="item.type === 'project' ? selectProject(item.id) : goToTask(item.id)"
       >
         <template #title>
@@ -194,6 +201,8 @@ function removeItem(id: number) {
       </VListItem>
     </template>
   </VList>
+  <!-- Модалка настроек темы -->
+  <ThemeSettingsDialog v-model="settingsModal" @update:model-value="settingsModal = false" />
 </template>
 
 <style scoped>

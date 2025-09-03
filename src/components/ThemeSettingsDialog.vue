@@ -1,47 +1,80 @@
 <script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
 import { Sun, Moon, Monitor } from 'lucide-vue-next'
+import { VDialog, VCard, VCardText, VBtn } from 'vuetify/components'
+import { useTheme } from 'vuetify'
 
-defineProps<{
+const props = defineProps<{
   modelValue: boolean
-  currentTheme: 'light' | 'dark' | 'system'
 }>()
-
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
-  (e: 'set-theme', value: 'light' | 'dark' | 'system'): void
 }>()
+const vuetifyTheme = useTheme()
+
+type Theme = 'light' | 'dark' | 'system'
+const preference = ref<Theme>((localStorage.getItem('theme') as Theme) || 'system')
+
+const theme = computed<Theme>({
+  get: () => preference.value,
+  set: (val) => {
+    preference.value = val
+    localStorage.setItem('theme', val)
+    applyTheme()
+  },
+})
+
+function applyTheme() {
+  if (preference.value === 'system') {
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    vuetifyTheme.global.name.value = isDark ? 'dark' : 'light'
+  } else {
+    vuetifyTheme.global.name.value = preference.value
+  }
+}
+
+onMounted(() => applyTheme())
+
+// Слушаем изменения системной темы
+const mq = window.matchMedia('(prefers-color-scheme: dark)')
+mq.addEventListener('change', () => {
+  if (preference.value === 'system') applyTheme()
+})
 </script>
 
 <template>
-  <VDialog :model-value="modelValue" max-width="360" @update:model-value="emit('update:modelValue', $event)">
-    <VCard title="Настройки">
+  <VDialog v-model="props.modelValue" max-width="360">
+    <VCard title="Настройки темы">
       <template #append>
-        <VBtn icon="mdi-close" variant="text" @click="emit('update:modelValue', false)"></VBtn>
+        <VBtn icon="mdi-close" variant="text" @click="$emit('update:modelValue', modelValue)" />
       </template>
+
       <VCardText class="d-flex justify-space-between gap-4">
         <VCard
-          :color="currentTheme === 'system' ? 'primary' : ''"
+          :color="theme === 'system' ? 'primary' : ''"
           width="33.3%"
-          @click="emit('set-theme', 'system')"
           class="d-flex flex-column align-center pa-2 rounded-lg"
+          @click="theme = 'system'"
         >
           <Monitor width="24" />
           <span class="text-sm">Системная</span>
         </VCard>
+
         <VCard
-          :color="currentTheme === 'light' ? 'primary' : ''"
+          :color="theme === 'light' ? 'primary' : ''"
           width="33.3%"
-          @click="emit('set-theme', 'light')"
           class="d-flex flex-column align-center pa-2 rounded-lg"
+          @click="theme = 'light'"
         >
           <Sun width="24" />
           <span class="text-sm">Светлая</span>
         </VCard>
+
         <VCard
-          :color="currentTheme === 'dark' ? 'primary' : ''"
+          :color="theme === 'dark' ? 'primary' : ''"
           width="33.3%"
-          @click="emit('set-theme', 'dark')"
           class="d-flex flex-column align-center pa-2 rounded-lg"
+          @click="theme = 'dark'"
         >
           <Moon width="24" />
           <span class="text-sm">Тёмная</span>
