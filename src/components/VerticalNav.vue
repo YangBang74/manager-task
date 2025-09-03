@@ -4,15 +4,14 @@ import { useRouter } from 'vue-router'
 import { useTaskStore } from '@/stores/tasks'
 import { useTheme } from 'vuetify'
 import ThemeSettingsDialog from './ThemeSettingsDialog.vue'
-import type { TaskItem } from '@/stores/tasks'
+import type { Project } from '@/types/tasks'
+import { useDisplay } from 'vuetify'
 
+const display = useDisplay()
 const router = useRouter()
 const store = useTaskStore()
 const vuetifyTheme = useTheme()
 
-// ——————————————————————————
-// Тема
-// ——————————————————————————
 export type Theme = 'light' | 'dark' | 'system'
 const preference = ref<Theme>((localStorage.getItem('theme') as Theme) || 'system')
 const theme = computed<'light' | 'dark' | 'system'>({
@@ -41,29 +40,12 @@ onMounted(() => {
   applyTheme()
 })
 
-// ——————————————————————————
-// Меню и задачи
-// ——————————————————————————
 const menuIsActive = ref(false)
 const showInput = ref(false)
 const newTaskTitle = ref('')
 const settingsModal = ref(false)
 const currentProject = ref<null | Project>(null)
 const addMode = ref<'task' | 'project'>('task')
-
-interface Base {
-  id: number
-  title: string
-}
-interface Task extends Base {
-  type: 'task'
-  done: boolean
-  items: TaskItem[]
-}
-interface Project extends Base {
-  type: 'project'
-  tasks: Task[]
-}
 
 function startAdd(mode: 'task' | 'project') {
   addMode.value = mode
@@ -103,34 +85,29 @@ function toggleMenu() {
   menuIsActive.value = !menuIsActive.value
 }
 
-// ——————————————————————————
-// Навигация в задачу
-// ——————————————————————————
 function goToTask(id: number) {
   router.push({ name: 'task-detail', params: { id } })
 }
+
+const railBool = computed(() => {
+  return !menuIsActive.value && display.mdAndUp
+})
 </script>
 
 <template>
   <!-- Иконка меню для мобильной версии -->
-  <VBtn
-    v-if="$vuetify.display.mdAndDown || !menuIsActive"
-    icon
-    class="mobile-menu-btn"
-    @click="toggleMenu"
-  >
+  <VBtn v-if="display.mdAndDown && !menuIsActive" icon class="mobile-menu-btn" @click="toggleMenu">
     <VIcon icon="mdi-menu" size="24" />
   </VBtn>
 
   <!-- Боковое меню -->
   <VNavigationDrawer
-    v-model="menuIsActive"
-    :rail="!menuIsActive"
+    :v-model="display.mdAndDown ? menuIsActive : true"
+    :rail-width="60"
+    :width="menuIsActive ? 280 : 60"
     class="flex-no-wrap"
-    :class="$vuetify.display.mdAndDown ? 'absolute' : 'relative'"
-    :permanent="!$vuetify.display.mdAndDown"
+    :permanent="!display.mdAndDown"
     floating
-    rail-width="60"
     elevation="2"
   >
     <VListItem

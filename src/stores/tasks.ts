@@ -1,29 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-
-export interface TaskItem {
-  id: number
-  type: 'text' | 'image'
-  content: string
-  createdAt: string
-}
-
-interface Base {
-  id: number
-  title: string
-}
-
-export interface Task extends Base {
-  type: 'task'
-  done: boolean
-  items: TaskItem[]
-}
-
-export interface Project extends Base {
-  type: 'project'
-  tasks: Task[]
-}
-
+import type { Task, Project } from '@/types/tasks'
 export const useTaskStore = defineStore('task', () => {
   const items = ref<(Task | Project)[]>([])
 

@@ -2,7 +2,7 @@
 import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useTaskStore } from '@/stores/tasks'
-import type { TaskItem, Task } from '@/stores/tasks'
+import type { TaskItem, Task } from '@/types/tasks'
 import { Paperclip, Pencil, X, Copy } from 'lucide-vue-next'
 
 const store = useTaskStore()
