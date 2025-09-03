@@ -8,42 +8,103 @@ export interface TaskItem {
   createdAt: string
 }
 
-export interface Task {
+interface Base {
   id: number
   title: string
+}
+
+export interface Task extends Base {
+  type: 'task'
   done: boolean
   items: TaskItem[]
 }
 
-export const useTaskStore = defineStore('task', () => {
-  const tasks = ref<Task[]>([])
+export interface Project extends Base {
+  type: 'project'
+  tasks: Task[]
+}
 
-  function addTask(title: string) {
-    const newTask: Task = {
+export const useTaskStore = defineStore('task', () => {
+  const items = ref<(Task | Project)[]>([])
+
+  function addItem(type: 'task' | 'project', title: string) {
+    const base = {
       id: Date.now(),
       title,
-      done: false,
-      items: [],
+      type,
     }
-    tasks.value.push(newTask)
+    const newItem =
+      type === 'task'
+        ? ({ ...base, done: false, items: [] } as Task)
+        : ({ ...base, tasks: [] } as Project)
+    items.value.push(newItem)
     saveToLocalStorage()
   }
 
-  function removeTask(id: number) {
-    tasks.value = tasks.value.filter((task) => task.id !== id)
-    saveToLocalStorage()
-  }
-
-  function toggleTask(id: number) {
-    const task = tasks.value.find((t) => t.id === id)
-    if (task) {
-      task.done = !task.done
+  function addTaskToProject(projectId: number, title: string) {
+    const project = items.value.find((i) => i.type === 'project' && i.id === projectId) as
+      | Project
+      | undefined
+    if (project) {
+      const newTask: Task = {
+        id: Date.now(),
+        type: 'task',
+        title,
+        done: false,
+        items: [],
+      }
+      project.tasks.push(newTask)
       saveToLocalStorage()
     }
   }
 
+  function findTask(id: number): { task: Task; parentProject?: Project } | undefined {
+    for (const item of items.value) {
+      if (item.type === 'task' && item.id === id) {
+        return { task: item as Task }
+      }
+      if (item.type === 'project') {
+        const task = item.tasks.find((t) => t.id === id)
+        if (task) {
+          return { task, parentProject: item }
+        }
+      }
+    }
+  }
+
+  function toggleTask(id: number) {
+    const found = findTask(id)
+    if (found) {
+      found.task.done = !found.task.done
+      saveToLocalStorage()
+    }
+  }
+
+  function removeTask(id: number) {
+    const found = findTask(id)
+    if (found) {
+      if (found.parentProject) {
+        found.parentProject.tasks = found.parentProject.tasks.filter((t) => t.id !== id)
+      } else {
+        items.value = items.value.filter((i) => i.id !== id)
+      }
+      saveToLocalStorage()
+    }
+  }
+
+  function removeById(id: number) {
+    const found = findTask(id)
+    if (found) {
+      removeTask(id)
+      return
+    }
+    items.value = items.value.filter((i) => i.id !== id)
+    saveToLocalStorage()
+  }
+
   function addItemToTask(taskId: number, type: 'text' | 'image', content: string) {
-    const task = tasks.value.find((t) => t.id === taskId)
+    const found = findTask(taskId)
+    const task = found?.task
     if (task) {
       task.items.push({
         id: Date.now(),
@@ -56,7 +117,8 @@ export const useTaskStore = defineStore('task', () => {
   }
 
   function removeItemFromTask(taskId: number, itemId: number) {
-    const task = tasks.value.find((t) => t.id === taskId)
+    const found = findTask(taskId)
+    const task = found?.task
     if (task) {
       task.items = task.items.filter((item) => item.id !== itemId)
       saveToLocalStorage()
@@ -64,7 +126,8 @@ export const useTaskStore = defineStore('task', () => {
   }
 
   function editItemContent(taskId: number, itemId: number, newContent: string) {
-    const task = tasks.value.find((t) => t.id === taskId)
+    const found = findTask(taskId)
+    const task = found?.task
     const item = task?.items.find((i) => i.id === itemId)
     if (item && item.type === 'text') {
       item.content = newContent
@@ -74,7 +137,7 @@ export const useTaskStore = defineStore('task', () => {
 
   function saveToLocalStorage() {
     try {
-      localStorage.setItem('tasks', JSON.stringify(tasks.value))
+      localStorage.setItem('tasks', JSON.stringify(items.value))
     } catch (error) {
       console.error('Failed to save tasks to localStorage:', error)
     }
@@ -84,7 +147,7 @@ export const useTaskStore = defineStore('task', () => {
     try {
       const saved = localStorage.getItem('tasks')
       if (saved) {
-        tasks.value = JSON.parse(saved)
+        items.value = JSON.parse(saved)
       }
     } catch (error) {
       console.error('Failed to load tasks from localStorage:', error)
@@ -94,12 +157,14 @@ export const useTaskStore = defineStore('task', () => {
   loadFromLocalStorage()
 
   return {
-    tasks,
-    addTask,
-    removeTask,
+    items,
+    addItem,
+    addTaskToProject,
+    removeById,
     toggleTask,
     addItemToTask,
     removeItemFromTask,
     editItemContent,
+    removeTask,
   }
 })

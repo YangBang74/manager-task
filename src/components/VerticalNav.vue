@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useTaskStore } from '@/stores/tasks'
-import { useTheme, useDisplay } from 'vuetify'
-import { Monitor, Sun, Moon } from 'lucide-vue-next'
+import { useTheme } from 'vuetify'
+import ThemeSettingsDialog from './ThemeSettingsDialog.vue'
+import type { TaskItem } from '@/stores/tasks'
 
 const router = useRouter()
-const route = useRoute()
 const store = useTaskStore()
 const vuetifyTheme = useTheme()
-const display = useDisplay()
 
 // ——————————————————————————
 // Тема
@@ -24,7 +23,6 @@ const theme = computed<'light' | 'dark' | 'system'>({
     applyTheme()
   },
 })
-
 function applyTheme() {
   if (preference.value === 'system') {
     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -33,16 +31,12 @@ function applyTheme() {
     vuetifyTheme.global.name.value = preference.value
   }
 }
-
-// Слушаем системную тему, если выбрано system
 const mq = window.matchMedia('(prefers-color-scheme: dark)')
 mq.addEventListener('change', () => {
   if (preference.value === 'system') {
     applyTheme()
   }
 })
-
-// Применяем тему сразу при загрузке
 onMounted(() => {
   applyTheme()
 })
@@ -54,23 +48,66 @@ const menuIsActive = ref(false)
 const showInput = ref(false)
 const newTaskTitle = ref('')
 const settingsModal = ref(false)
+const currentProject = ref<null | Project>(null)
+const addMode = ref<'task' | 'project'>('task')
 
-function addTask() {
+interface Base {
+  id: number
+  title: string
+}
+interface Task extends Base {
+  type: 'task'
+  done: boolean
+  items: TaskItem[]
+}
+interface Project extends Base {
+  type: 'project'
+  tasks: Task[]
+}
+
+function startAdd(mode: 'task' | 'project') {
+  addMode.value = mode
+  showInput.value = true
+}
+
+function add() {
   if (!newTaskTitle.value.trim()) return
-  store.addTask(newTaskTitle.value.trim())
+  const title = newTaskTitle.value.trim()
+  if (addMode.value === 'project') {
+    if (!currentProject.value) store.addItem('project', title)
+  } else {
+    if (currentProject.value) {
+      store.addTaskToProject(currentProject.value.id, title)
+    } else {
+      store.addItem('task', title)
+    }
+  }
   newTaskTitle.value = ''
   showInput.value = false
 }
 
-function goToTask(taskId: number) {
-  router.push(`/task/${taskId}`)
-  if (display.mdAndDown.value) {
-    menuIsActive.value = false // Закрываем меню после выбора задачи на мобильных
+function selectProject(projectId: number) {
+  const project = store.items.find((i) => i.type === 'project' && i.id === projectId) as
+    | Project
+    | undefined
+  if (project) {
+    currentProject.value = project
   }
+}
+
+function goBack() {
+  currentProject.value = null
 }
 
 function toggleMenu() {
   menuIsActive.value = !menuIsActive.value
+}
+
+// ——————————————————————————
+// Навигация в задачу
+// ——————————————————————————
+function goToTask(id: number) {
+  router.push({ name: 'task-detail', params: { id } })
 }
 </script>
 
@@ -116,60 +153,121 @@ function toggleMenu() {
         </VBtn>
       </template>
     </VListItem>
+
     <VDivider class="my-2" />
+
     <VList density="compact" nav>
       <VListItem
-        prepend-icon="mdi-plus"
-        :title="menuIsActive ? 'Добавить задачу' : ''"
-        @click="showInput = !showInput"
+        v-if="currentProject"
+        prepend-icon="mdi-arrow-left"
+        :title="menuIsActive ? 'Назад' : ''"
+        @click="goBack"
         rounded="lg"
         :class="!menuIsActive ? 'justify-center' : ''"
       />
+      <VListItem
+        v-if="!currentProject"
+        prepend-icon="mdi-folder-plus"
+        :title="menuIsActive ? 'Добавить проект' : ''"
+        @click="startAdd('project')"
+        rounded="lg"
+        :class="!menuIsActive ? 'justify-center' : ''"
+      />
+      <VListItem
+        prepend-icon="mdi-plus"
+        :title="menuIsActive ? 'Добавить задачу' : ''"
+        @click="startAdd('task')"
+        rounded="lg"
+        :class="!menuIsActive ? 'justify-center' : ''"
+      />
+
       <VExpandTransition>
         <div v-if="showInput && menuIsActive" class="my-2">
           <VTextField
             v-model="newTaskTitle"
-            label="Название задачи"
+            :label="addMode === 'project' ? 'Название проекта' : 'Название задачи'"
             variant="outlined"
             density="compact"
             class="text-body-2"
             hide-details
-            @keydown.enter="addTask"
+            @keydown.enter="add"
           />
         </div>
       </VExpandTransition>
-      <VListItem
-        v-for="task in store.tasks"
-        :key="task.id"
-        :active="Number(route.params.id) === task.id"
-        @click="goToTask(task.id)"
-        :title="menuIsActive ? task.title : ''"
-        :color="!task.done ? 'success' : undefined"
-        rounded="lg"
-        :class="[
-          task.done ? 'line-through text-medium-emphasis bg-success' : 'bg-secondary/20',
-          !menuIsActive ? 'justify-center' : '',
-        ]"
-      >
-        <template #prepend>
-          <VIcon
-            size="20"
-            :class="menuIsActive ? '' : 'ml-1'"
-            :icon="task.done ? 'mdi-check-circle' : 'mdi-circle-outline'"
-            @click.stop="store.toggleTask(task.id)"
-          />
-        </template>
-        <template #append>
-          <VBtn
-            size="x-small"
-            icon="mdi-close"
-            variant="text"
-            @click.stop="store.removeTask(task.id)"
-            v-if="menuIsActive"
-          />
-        </template>
-      </VListItem>
+
+      <template v-if="currentProject">
+        <VListItem
+          v-for="task in currentProject.tasks"
+          :key="task.id"
+          rounded="lg"
+          :class="[
+            task.done ? 'line-through text-medium-emphasis bg-success' : 'bg-secondary/20',
+            !menuIsActive ? 'justify-center' : '',
+          ]"
+          @click="goToTask(task.id)"
+        >
+          <template #title>
+            <span v-if="menuIsActive">{{ task.title }}</span>
+          </template>
+          <template #prepend>
+            <VIcon
+              size="20"
+              :class="menuIsActive ? '' : 'ml-1'"
+              :icon="task.done ? 'mdi-check-circle' : 'mdi-circle-outline'"
+              @click.stop="store.toggleTask(task.id)"
+            />
+          </template>
+          <template #append>
+            <VBtn
+              size="x-small"
+              icon="mdi-close"
+              variant="text"
+              @click.stop="store.removeTask(task.id)"
+              v-if="menuIsActive"
+            />
+          </template>
+        </VListItem>
+      </template>
+
+      <template v-else>
+        <VListItem
+          v-for="item in store.items"
+          :key="item.id"
+          rounded="lg"
+          :class="!menuIsActive ? 'justify-center' : ''"
+          @click="item.type === 'project' ? selectProject(item.id) : goToTask(item.id)"
+        >
+          <template #title>
+            <span v-if="menuIsActive">{{ item.title }}</span>
+          </template>
+          <template #prepend>
+            <VIcon
+              v-if="item.type === 'project'"
+              size="20"
+              :class="menuIsActive ? '' : 'ml-1'"
+              icon="mdi-folder"
+            />
+            <VIcon
+              v-else
+              size="20"
+              :class="menuIsActive ? '' : 'ml-1'"
+              :icon="item.done ? 'mdi-check-circle' : 'mdi-circle-outline'"
+              @click.stop="store.toggleTask(item.id)"
+            />
+          </template>
+          <template #append>
+            <VBtn
+              size="x-small"
+              icon="mdi-close"
+              variant="text"
+              @click.stop="store.removeById(item.id)"
+              v-if="menuIsActive"
+            />
+          </template>
+        </VListItem>
+      </template>
     </VList>
+
     <template #append v-if="!$vuetify.display.mdAndDown">
       <div class="pa-2">
         <VBtn
@@ -180,49 +278,13 @@ function toggleMenu() {
           :class="menuIsActive ? 'text-center ma-0' : 'text-h6 justify-center'"
           :prepend-icon="menuIsActive ? 'mdi-chevron-left' : 'mdi-chevron-right'"
           :text="menuIsActive ? 'Свернуть' : ''"
-        >
-        </VBtn>
+        />
       </div>
     </template>
   </VNavigationDrawer>
 
   <!-- Модалка настроек темы -->
-  <VDialog v-model="settingsModal" max-width="360">
-    <VCard title="Настройки">
-      <template #append>
-        <VBtn icon="mdi-close" variant="text" @click="settingsModal = false"></VBtn>
-      </template>
-      <VCardText class="d-flex justify-between gap-4">
-        <VCard
-          :color="theme === 'system' ? 'primary' : ''"
-          width="33.3%"
-          @click="theme = 'system'"
-          class="d-flex flex-col align-center pa-2 rounded-lg"
-        >
-          <Monitor width="24" />
-          <span class="text-sm">Системная</span>
-        </VCard>
-        <VCard
-          :color="theme === 'light' ? 'primary' : ''"
-          width="33.3%"
-          @click="theme = 'light'"
-          class="d-flex flex-col align-center pa-2 rounded-lg"
-        >
-          <Sun width="24" />
-          <span class="text-sm">Светлая</span>
-        </VCard>
-        <VCard
-          :color="theme === 'dark' ? 'primary' : ''"
-          width="33.3%"
-          @click="theme = 'dark'"
-          class="d-flex flex-col align-center pa-2 rounded-lg"
-        >
-          <Moon width="24" />
-          <span class="text-sm">Тёмная</span>
-        </VCard>
-      </VCardText>
-    </VCard>
-  </VDialog>
+  <ThemeSettingsDialog v-model="settingsModal" :current-theme="theme" @set-theme="theme = $event" />
 </template>
 
 <style scoped>

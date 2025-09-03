@@ -1,17 +1,29 @@
 <script setup lang="ts">
+import { ref, computed, nextTick, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useTaskStore } from '@/stores/tasks'
-import type { TaskItem } from '@/stores/tasks'
-import { ref, computed, onMounted, nextTick, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { Paperclip, Send, Pencil, X, Copy, Move } from 'lucide-vue-next'
+import type { TaskItem, Task } from '@/stores/tasks'
+import { Paperclip, Pencil, X, Copy } from 'lucide-vue-next'
 
 const store = useTaskStore()
 const route = useRoute()
-const router = useRouter()
 
-const taskId = ref(Number(route.params.id) || store.tasks[0]?.id || 0)
-const currentTask = computed(() => store.tasks.find((t) => t.id === taskId.value))
-const newContent = ref<string>('')
+const taskId = ref(Number(route.params.id) || 0)
+const currentTask = computed<Task | null>(() => {
+  // ищем задачу среди обычных задач
+  const found = store.items.find((i) => i.type === 'task' && i.id === taskId.value)
+  if (found && found.type === 'task') return found as Task
+  // ищем задачу внутри проектов
+  for (const item of store.items) {
+    if (item.type === 'project') {
+      const task = item.tasks.find((t) => t.id === taskId.value)
+      if (task) return task
+    }
+  }
+  return null
+})
+
+const newContent = ref('')
 const editingItem = ref<TaskItem | null>(null)
 const messagesContainer = ref<HTMLElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -22,19 +34,15 @@ const selectedImage = ref('')
 const scale = ref(1)
 const translateX = ref(0)
 const translateY = ref(0)
-const isDragging = ref(false)
 const dragStart = ref({ x: 0, y: 0, distance: 0 })
-const isPanMode = ref(true)
 
 watch(
   () => route.params.id,
   (newId) => {
     const parsedId = Number(newId)
-    if (!isNaN(parsedId) && store.tasks.some((t) => t.id === parsedId)) {
+    if (!isNaN(parsedId)) {
       taskId.value = parsedId
       scrollToBottom()
-    } else if (store.tasks.length > 0) {
-      router.push(`/task/${store.tasks[0].id}`)
     }
   },
 )
@@ -65,10 +73,7 @@ function onClickOutside(event: MouseEvent) {
 }
 
 function copyItem(item: TaskItem) {
-  navigator.clipboard
-    .writeText(item.content)
-    .then(() => console.log('Copied'))
-    .catch(console.error)
+  navigator.clipboard.writeText(item.content).catch(console.error)
   hideContextMenu()
 }
 
@@ -138,7 +143,8 @@ function cancelEdit() {
 }
 
 function deleteItem(item: TaskItem) {
-  currentTask.value && store.removeItemFromTask(currentTask.value.id, item.id)
+  if (!currentTask.value) return
+  store.removeItemFromTask(currentTask.value.id, item.id)
   hideContextMenu()
 }
 
@@ -148,61 +154,11 @@ function openImageModal(src: string) {
   resetTransform()
 }
 
-function closeImageModal() {
-  showImageModal.value = false
-  selectedImage.value = ''
-  resetTransform()
-}
-
 function resetTransform() {
   scale.value = 1
   translateX.value = 0
   translateY.value = 0
   dragStart.value.distance = 0
-}
-
-function onWheel(e: WheelEvent) {
-  e.preventDefault()
-  if (e.ctrlKey) {
-    const delta = e.deltaY > 0 ? -0.1 : 0.1
-    scale.value = Math.min(5, Math.max(0.5, scale.value + delta))
-  }
-}
-
-function startDrag(e: MouseEvent | TouchEvent) {
-  if (!showImageModal.value || !isPanMode.value) return
-  isDragging.value = true
-  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-  dragStart.value.x = clientX - translateX.value
-  dragStart.value.y = clientY - translateY.value
-}
-
-function onDrag(e: MouseEvent | TouchEvent) {
-  if (!isDragging.value) return
-  e.preventDefault()
-  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
-  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
-  translateX.value = clientX - dragStart.value.x
-  translateY.value = clientY - dragStart.value.y
-}
-
-function endDrag() {
-  isDragging.value = false
-}
-
-function onTouchMove(e: TouchEvent) {
-  if (e.touches.length === 2) {
-    e.preventDefault()
-    const [t1, t2] = e.touches
-    const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY)
-    if (!dragStart.value.distance) dragStart.value.distance = dist
-    const newScale = scale.value * (dist / dragStart.value.distance)
-    scale.value = Math.max(0.5, Math.min(5, newScale))
-    dragStart.value.distance = dist
-  } else if (e.touches.length === 1 && isPanMode.value) {
-    onDrag(e)
-  }
 }
 
 function formatTimestamp(timestamp: string | Date): string {
@@ -214,7 +170,6 @@ function triggerFileInput() {
 }
 
 onMounted(() => {
-  if (!currentTask.value) console.warn('No task for ID:', taskId.value)
   document.addEventListener('click', onClickOutside)
   scrollToBottom()
 })
@@ -222,13 +177,7 @@ onMounted(() => {
 
 <template>
   <div class="w-full flex flex-col overflow-hidden h-full" style="max-height: 82vh">
-    <VAppBar
-      elevation="0"
-      height="64"
-      class="border-b"
-      :class="$vuetify.display.mdAndDown ? 'pl-10' : 'px-4'"
-      app
-    >
+    <VAppBar elevation="0" height="64" class="border-b" app>
       <VToolbarTitle class="text-truncate">
         {{ currentTask?.title || 'Задача не найдена' }}
       </VToolbarTitle>
@@ -241,12 +190,17 @@ onMounted(() => {
       @drop="onDrop"
       @dragover="onDragOver"
     >
-      <div v-if="!currentTask" class="text-center py-8">Выберите задачу из бокового меню</div>
-      <div v-else-if="!currentTask.items.length" class="text-center py-8">
+      <div v-if="!currentTask" class="text-center py-8">Выберите задачу</div>
+
+      <div
+        v-else-if="currentTask?.type === 'task' && !currentTask.items.length"
+        class="text-center py-8"
+      >
         Добавьте данные задачи!
       </div>
+
       <div
-        v-for="item in currentTask?.items"
+        v-for="item in currentTask?.type === 'task' ? currentTask.items : []"
         :key="item.id"
         class="flex justify-start items-end min-h-[48px] my-2 mx-5"
         @contextmenu="showContextMenu($event, item)"
@@ -264,7 +218,6 @@ onMounted(() => {
             <img
               :src="item.content"
               class="max-w-full max-h-60 object-contain cursor-pointer"
-              alt="Attached image"
               @click="openImageModal(item.content)"
             />
           </div>
@@ -299,66 +252,6 @@ onMounted(() => {
       >
         <X class="w-4 h-4" /> Удалить
       </button>
-    </div>
-
-    <div
-      v-if="showImageModal"
-      class="fixed inset-0 flex items-center justify-center z-50 bg-black/70"
-      @click.self="closeImageModal"
-      @wheel="onWheel"
-      @mousedown="startDrag"
-      @mousemove="onDrag"
-      @mouseup="endDrag"
-      @touchstart="startDrag"
-      @touchmove="onTouchMove"
-      @touchend="endDrag"
-    >
-      <div class="relative max-h-[90vh] p-4 overflow-hidden">
-        <img
-          :src="selectedImage"
-          class="rounded-lg object-contain"
-          :class="{ 'cursor-move': isPanMode, 'cursor-default': !isPanMode }"
-          :style="{
-            transform: `scale(${scale}) translate(${translateX}px, ${translateY}px)`,
-            transition: isDragging ? 'none' : 'transform 0.2s ease-out',
-          }"
-          alt="Full-size image"
-        />
-        <button
-          @click="closeImageModal"
-          class="absolute top-2 right-2 p-2 bg-gray-900/80 rounded-full hover:bg-gray-700 transition"
-          title="Закрыть"
-        >
-          <X class="w-6 h-6" />
-        </button>
-        <button
-          @click="resetTransform"
-          class="absolute top-2 right-12 p-2 bg-gray-900/80 rounded-full hover:bg-gray-700 transition"
-          title="Сбросить масштаб"
-        >
-          <svg
-            class="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            ></path>
-          </svg>
-        </button>
-        <button
-          @click="isPanMode = !isPanMode"
-          class="absolute top-2 right-22 p-2 bg-gray-900/80 rounded-full hover:bg-gray-700 transition"
-          :title="isPanMode ? 'Отключить режим руки' : 'Включить режим руки'"
-        >
-          <Move class="w-6 h-6" />
-        </button>
-      </div>
     </div>
 
     <VFooter class="pa-2 border-t" app>
@@ -401,64 +294,24 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* Стили для textarea */
 textarea {
   line-height: 1.5;
   overflow-y: auto;
   resize: none;
   max-height: 120px;
 }
-
-/* Кастомный скроллбар для textarea */
 textarea::-webkit-scrollbar {
   width: 6px;
-}
-textarea::-webkit-scrollbar-track {
-  background: transparent;
-  border-radius: 12px;
 }
 textarea::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 12px;
-  transition: background 0.2s ease;
 }
-textarea::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
-}
-.dark textarea::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-}
-.dark textarea::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
-}
-
-/* === UPDATED SCROLLBAR STYLES FOR MAIN === */
 main::-webkit-scrollbar {
   width: 8px;
-}
-main::-webkit-scrollbar-track {
-  background: transparent;
 }
 main::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.3);
   border-radius: 12px;
-}
-main::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.5);
-}
-.dark main::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-}
-.dark main::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
-}
-
-/* Firefox */
-main {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
-}
-.dark main {
-  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
 }
 </style>

@@ -5,8 +5,8 @@ import VerticalNav from '@/components/VerticalNav.vue'
 <template>
   <VApp class="!overflow-hidden">
     <VLayout>
-      <VerticalNav />
       <VMain>
+        <VerticalNav />
         <RouterView />
       </VMain>
     </VLayout>
